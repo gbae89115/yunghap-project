@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RoutineNote V2.0 - 스마트 루틴 & GPS 노트</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Kakao Map API SDK (&libraries=services 파라미터를 추가하여 주소 변환 기능 활성화) -->
+    <script type="text/javascript" src="http://dapi.kakao.com/v2/maps/sdk.js?appkey=36bfe3a14388c3ca438cb87858da7e58"></script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0f172a;
+            color: #1e293b;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .mobile-wrapper {
+            width: 100%;
+            max-width: 390px;
+            height: 100vh;
+            max-height: 844px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        @media (min-width: 450px) {
+            .mobile-wrapper {
+                border-radius: 44px;
+                border: 10px solid #1e293b;
+                height: 844px;
+                margin: 20px auto;
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .gauge-needle {
+            transform-origin: 100px 100px;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.92) translateY(10px);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes gps-glow {
+            0% { transform: scale(0.9); opacity: 0.9; }
+            50% { transform: scale(1.3); opacity: 0.3; }
+            100% { transform: scale(0.9); opacity: 0.9; }
+        }
+        .gps-glow-effect {
+            animation: gps-glow 1.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
+
+    <div class="mobile-wrapper bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+        
+        <!-- Status Bar -->
+        <div class="bg-brand-600 dark:bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-semibold z-30 transition-colors">
+            <span id="statusBarTime">11:55</span>
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-signal text-[10px]"></i>
+                <i class="fa-solid fa-wifi text-[10px]"></i>
+                <i class="fa-solid fa-battery-full text-xs"></i>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-brand-600 dark:bg-slate-900 text-white px-5 py-3 shadow-md flex justify-between items-center z-20 border-b border-white/10">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-white text-brand-600 dark:bg-brand-500 dark:text-white flex items-center justify-center font-black text-xl shadow-md">
+                    R
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <h1 class="text-lg font-black tracking-tight leading-none">RoutineNote</h1>
+                        <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.0</span>
+                    </div>
+                    <p class="text-[10px] text-blue-100 dark:text-slate-400 font-medium mt-0.5">스마트 루틴 & GPS 지도 노트</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full bg-white/10 dark:bg-slate-800 hover:bg-white/20 flex items-center justify-center transition text-amber-300 dark:text-amber-400">
+                    <i class="fa-solid fa-sun text-sm dark:hidden"></i>
+                    <i class="fa-solid fa-moon text-sm hidden dark:inline"></i>
+                </button>
+                <button onclick="quickSelectToday()" class="text-xs bg-white/20 hover:bg-white/30 dark:bg-slate-800 text-white px-2.5 py-1.5 rounded-xl backdrop-blur-md transition flex items-center gap-1 font-semibold">
+                    <i class="fa-solid fa-calendar-day"></i> 오늘
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20 bg-slate-100 dark:bg-slate-900/90" id="mainScrollBody">
+
+            <!-- TAB 1: Today Routine -->
+            <section id="tab-today" class="tab-screen block p-4 space-y-4">
+                <div class="bg-gradient-to-br from-brand-600 via-blue-600 to-indigo-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-blue-500/10 border border-white/10 relative overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="text-[10px] bg-white/20 dark:bg-brand-500/30 px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">Today Routine</span>
+                            <h2 class="text-xl font-bold mt-1.5" id="todayBannerDate">2026년 10월 7일 (수)</h2>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">66%</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 backdrop-blur-md">
+                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 66%;"></div>
+                    </div>
+
+                    <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
+                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i>340 kcal 소모</span>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-brand-500"></i> 오늘 루틴 체크리스트
+                        </h3>
+                        <button onclick="openDetailModal('2026-10-07')" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1">
+                            + 항목 수정/추가 <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <div id="todayChecklistContainer" class="space-y-2"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="switchTab('tab-running')" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-person-running"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-emerald-100 block">GPS 실시간</span>
+                            <span class="text-sm font-bold">런닝 시작하기</span>
+                        </div>
+                    </button>
+
+                    <button onclick="switchTab('tab-calendar')" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-calendar-days"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-indigo-100 block">월간 일지</span>
+                            <span class="text-sm font-bold">캘린더 전체보기</span>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 2: Kakao Map Running Tracker -->
+            <section id="tab-running" class="tab-screen hidden p-4 space-y-4">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+                    <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
+                            <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+                                <span id="runDistance">5.2</span> <span class="text-xs font-medium text-slate-400">km</span>
+                            </div>
+                        </div>
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
+                            <div class="text-2xl font-black text-brand-600 dark:text-brand-400 mt-1" id="runTimer">
+                                00:28:40
+                            </div>
+                        </div>
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
+                            <div class="text-2xl font-black text-red-500 mt-1">
+                                <span id="runCalories">415</span> <span class="text-xs font-medium text-slate-400">kcal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
+                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">5'27"</strong> /km</div>
+                        <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">카카오맵 v2.0 GPS 실시간 트래커</h3>
+                        </div>
+                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-mono">Kakao API</span>
+                    </div>
+
+                    <div class="relative w-full h-72 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">
+                        <div id="kakaoMap" class="w-full h-full block"></div>
+                        <canvas id="fallbackMapCanvas" class="hidden absolute inset-0 w-full h-full"></canvas>
+
+                        <!-- 위치 이름 표시 뱃지 (id="locationBadgeText" 적용) -->
+                        <div class="absolute top-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 z-10">
+                            <i class="fa-solid fa-location-dot text-red-500"></i> <span id="locationBadgeText">GPS 위치 탐색 중...</span>
+                        </div>
+
+                        <div class="absolute bottom-3 right-3 flex flex-col gap-2 z-10">
+                            <button onclick="recenterKakaoMap()" class="w-9 h-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-white active:scale-95 transition">
+                                <i class="fa-solid fa-crosshairs text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="toggleRunBtn" onclick="toggleRunningSimulation()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-play" id="toggleRunIcon"></i> <span id="toggleRunText">트래킹 시작</span>
+                        </button>
+                        <button onclick="resetRunningData()" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-arrow-rotate-right"></i> 경로 초기화
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: Calendar -->
+            <section id="tab-calendar" class="tab-screen hidden p-4 space-y-4">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center px-1">
+                        <button onclick="changeCalendarMonth(-1)" class="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <h3 id="calendarMonthTitle" class="font-bold text-slate-800 dark:text-slate-100 text-base">2026년 10월</h3>
+                        <button onclick="changeCalendarMonth(1)" class="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 dark:text-slate-500 py-1">
+                        <span class="text-red-500">일</span>
+                        <span>월</span>
+                        <span>화</span>
+                        <span>수</span>
+                        <span>목</span>
+                        <span>금</span>
+                        <span class="text-blue-500">토</span>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1.5" id="calendarGrid"></div>
+
+                    <div class="flex items-center justify-center space-x-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span>루틴 완수</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                            <span>일부 완료</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            <span>미완료 / 기록 없음</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: Diet & BMI -->
+            <section id="tab-body" class="tab-screen hidden p-4 space-y-4">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-weight-scale text-brand-500"></i> 신체 데이터 설정 및 계산
+                        </h3>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">성별 선택</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" id="genderMale" onclick="setGender('male')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300">
+                                <i class="fa-solid fa-mars"></i> 남성
+                            </button>
+                            <button type="button" id="genderFemale" onclick="setGender('female')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300">
+                                <i class="fa-solid fa-venus"></i> 여성
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">나이 (세)</label>
+                            <input type="number" id="inputAge" value="28" min="10" max="100" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">몸무게 (kg)</label>
+                            <input type="number" id="inputWeight" value="72.5" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">키 (cm)</label>
+                            <input type="number" id="inputHeight" value="175" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+
+                    <button onclick="calculateBodyMetrics()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> BMI & BMR 계산 업데이트
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 5: Menu -->
+            <section id="tab-menu" class="tab-screen hidden p-4 space-y-4">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-1">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">RoutineNote v2.0 메뉴</h3>
+                    <button onclick="switchTab('tab-running')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-map-location-dot text-indigo-500 w-4 text-center"></i> 런닝 지도 (Kakao GPS)
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Navigation Bar -->
+        <nav class="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-2 flex justify-around items-center z-30 shadow-lg">
+            <button onclick="switchTab('tab-today')" id="nav-tab-today" class="nav-btn flex-1 flex flex-col items-center py-1 text-brand-600 dark:text-brand-400 font-bold transition">
+                <i class="fa-solid fa-house text-base mb-0.5"></i>
+                <span class="text-[10px]">오늘 루틴</span>
+            </button>
+            <button onclick="switchTab('tab-running')" id="nav-tab-running" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-person-running text-base mb-0.5"></i>
+                <span class="text-[10px]">런닝 지도</span>
+            </button>
+            <button onclick="switchTab('tab-calendar')" id="nav-tab-calendar" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-calendar-days text-base mb-0.5"></i>
+                <span class="text-[10px]">캘린더</span>
+            </button>
+            <button onclick="switchTab('tab-body')" id="nav-tab-body" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-chart-simple text-base mb-0.5"></i>
+                <span class="text-[10px]">다이어트/BMI</span>
+            </button>
+            <button onclick="switchTab('tab-menu')" id="nav-tab-menu" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-bars text-base mb-0.5"></i>
+                <span class="text-[10px]">메뉴</span>
+            </button>
+        </nav>
+
+        <!-- Modal Popup -->
+        <div id="detailModal" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden modal-enter" id="detailModalCard">
+                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="modalDateTitle">
+                        <i class="fa-solid fa-calendar-day"></i> 2026년 10월 7일 운동 목록
+                    </h3>
+                    <button onclick="closeDetailModal()" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="p-3.5 space-y-2.5 max-h-[280px] overflow-y-auto no-scrollbar" id="modalRoutineList"></div>
+
+                <div class="px-3.5 pb-2 border-t border-slate-100 dark:border-slate-700/60 pt-2.5">
+                    <form onsubmit="addNewRoutineItem(event)" class="flex items-center gap-2">
+                        <input type="text" id="newRoutineInput" placeholder="+ 새 운동 루틴 입력..." class="flex-1 bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow">
+                            추가
+                        </button>
+                    </form>
+                </div>
+
+                <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-700/60 flex gap-2">
+                    <button onclick="closeDetailModal()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                        확인 및 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600" id="toastIcon"></i>
+            <span id="toastMsg">루틴 상태가 업데이트 되었습니다.</span>
+        </div>
+
+    </div>
+
+    <script>
+        let isRunning = false;
+        let runTimerInterval = null;
+        let secondsElapsed = 1720;
+        let distanceKm = 5.2;
+        let caloriesBurned = 415;
+
+        let kakaoMapInstance = null;
+        let kakaoPolyline = null;
+        let kakaoMarker = null;
+        let currentLat = 37.4852;
+        let currentLng = 126.7816;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initKakaoMap();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-screen').forEach(tab => tab.classList.add('hidden'));
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400', 'font-bold');
+                btn.classList.add('text-slate-400', 'font-medium');
+            });
+
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-400', 'font-medium');
+                activeNav.classList.add('text-brand-600', 'dark:text-brand-400', 'font-bold');
+            }
+
+            if (tabId === 'tab-running') {
+                setTimeout(relayoutKakaoMap, 100);
+            }
+        }
+
+        /* Kakao Map 지도 및 GPS 주소 변환 엔진 */
+        function initKakaoMap() {
+            const container = document.getElementById('kakaoMap');
+            if (!container) return;
+
+            if (typeof kakao !== 'undefined' && kakao.maps) {
+                try {
+                    // 브라우저 GPS 위치 조회 지원 시
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition((position) => {
+                            currentLat = position.coords.latitude;
+                            currentLng = position.coords.longitude;
+                            setupMapAndAddress(container, currentLat, currentLng);
+                        }, (err) => {
+                            // GPS 차단 또는 실패 시 기본 좌표
+                            setupMapAndAddress(container, currentLat, currentLng);
+                        });
+                    } else {
+                        setupMapAndAddress(container, currentLat, currentLng);
+                    }
+                    return;
+                } catch (e) {
+                    console.warn("Kakao Map init fallback:", e);
+                }
+            }
+            initFallbackCanvasMap();
+        }
+
+        function setupMapAndAddress(container, lat, lng) {
+            const options = {
+                center: new kakao.maps.LatLng(lat, lng),
+                level: 3
+            };
+            kakaoMapInstance = new kakao.maps.Map(container, options);
+
+            // 경로 표시 선 생성
+            const linePath = [
+                new kakao.maps.LatLng(lat - 0.001, lng - 0.001),
+                new kakao.maps.LatLng(lat - 0.0005, lng + 0.0005),
+                new kakao.maps.LatLng(lat, lng)
+            ];
+
+            kakaoPolyline = new kakao.maps.Polyline({
+                path: linePath,
+                strokeWeight: 6,
+                strokeColor: '#3b82f6',
+                strokeOpacity: 0.9,
+                strokeStyle: 'solid'
+            });
+            kakaoPolyline.setMap(kakaoMapInstance);
+
+            // 위치 마커 표시
+            kakaoMarker = new kakao.maps.Marker({
+                position: new kakao.maps.LatLng(lat, lng)
+            });
+            kakaoMarker.setMap(kakaoMapInstance);
+
+            // 좌표를 행정동 주소로 변환하여 뱃지 텍스트 업데이트
+            updateAddressFromCoords(lat, lng);
+        }
+
+        // 좌표 -> 행정동 주소 변환 (Geocoder)
+        function updateAddressFromCoords(lat, lng) {
+            if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.services) {
+                const geocoder = new kakao.maps.services.Geocoder();
+                geocoder.coord2RegionCode(lng, lat, (result, status) => {
+                    if (status === kakao.maps.services.Status.OK) {
+                        for (let i = 0; i < result.length; i++) {
+                            if (result[i].region_type === 'H') { // 행정동 타입
+                                const locationName = result[i].address_name;
+                                const badgeElem = document.getElementById('locationBadgeText');
+                                if (badgeElem) {
+                                    badgeElem.textContent = `${locationName} 코스`;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function relayoutKakaoMap() {
+            if (kakaoMapInstance) {
+                kakaoMapInstance.relayout();
+                kakaoMapInstance.setCenter(new kakao.maps.LatLng(currentLat, currentLng));
+            } else {
+                initFallbackCanvasMap();
+            }
+        }
+
+        function recenterKakaoMap() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    
+                    if (kakaoMapInstance) {
+                        const loc = new kakao.maps.LatLng(currentLat, currentLng);
+                        kakaoMapInstance.setCenter(loc);
+                        if (kakaoMarker) kakaoMarker.setPosition(loc);
+                        updateAddressFromCoords(currentLat, currentLng);
+                    }
+                    showToast('현재 GPS 위치와 주소를 갱신했습니다.');
+                });
+            } else {
+                showToast('GPS 위치 정보 조회가 불가능합니다.');
+            }
+        }
+
+        function initFallbackCanvasMap() {
+            const canvas = document.getElementById('fallbackMapCanvas');
+            if (!canvas) return;
+            canvas.classList.remove('hidden');
+
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth || 340;
+            canvas.height = canvas.parentElement.clientHeight || 280;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(30, 180);
+            ctx.lineTo(120, 120);
+            ctx.lineTo(200, 160);
+            ctx.lineTo(280, 80);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(280, 80, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            const badgeElem = document.getElementById('locationBadgeText');
+            if (badgeElem) badgeElem.textContent = "GPS 기본 코스";
+        }
+
+        function toggleRunningSimulation() {
+            const btnText = document.getElementById('toggleRunText');
+            const btnIcon = document.getElementById('toggleRunIcon');
+
+            if (!isRunning) {
+                isRunning = true;
+                btnText.textContent = "일시 정지";
+                btnIcon.className = "fa-solid fa-pause";
+
+                runTimerInterval = setInterval(() => {
+                    secondsElapsed++;
+                    distanceKm += 0.003;
+                    caloriesBurned += 0.25;
+
+                    document.getElementById('runDistance').textContent = distanceKm.toFixed(1);
+                    document.getElementById('runCalories').textContent = Math.round(caloriesBurned);
+
+                    const hrs = String(Math.floor(secondsElapsed / 3600)).padStart(2, '0');
+                    const mins = String(Math.floor((secondsElapsed % 3600) / 60)).padStart(2, '0');
+                    const secs = String(secondsElapsed % 60).padStart(2, '0');
+                    document.getElementById('runTimer').textContent = `${hrs}:${mins}:${secs}`;
+                }, 1000);
+
+                showToast('GPS 트래킹을 시작합니다.');
+            } else {
+                isRunning = false;
+                btnText.textContent = "트래킹 재개";
+                btnIcon.className = "fa-solid fa-play";
+                clearInterval(runTimerInterval);
+                showToast('GPS 트래킹이 일시정지 되었습니다.');
+            }
+        }
+
+        function resetRunningData() {
+            isRunning = false;
+            clearInterval(runTimerInterval);
+            secondsElapsed = 0;
+            distanceKm = 0.0;
+            caloriesBurned = 0;
+
+            document.getElementById('toggleRunText').textContent = "트래킹 시작";
+            document.getElementById('toggleRunIcon').className = "fa-solid fa-play";
+            document.getElementById('runDistance').textContent = "0.0";
+            document.getElementById('runCalories').textContent = "0";
+            document.getElementById('runTimer').textContent = "00:00:00";
+
+            showToast('러닝 데이터가 초기화되었습니다.');
+        }
+
+        function toggleDarkMode() {}
+        function quickSelectToday() {}
+        function openDetailModal(dateStr) {}
+        function closeDetailModal() {}
+        function addNewRoutineItem(event) { event.preventDefault(); }
+        function setGender(gender) {}
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 2000);
+        }
+    </script>
+</body>
+</html>
