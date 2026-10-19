@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RoutineNote V2.0 - 스마트 루틴 & GPS 노트</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- FullCalendar: 수업 규칙에 따라 버전을 @6.1.8 로 정확히 고정 -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+    <!-- Kakao Map API SDK (User Provided Key)
+         libraries=services : 좌표 -> 주소 변환(Geocoder)에 필요. 이 값이 없으면 주소 뱃지가 갱신되지 않는다.
+         https: 를 명시해야 http/https 어느 쪽 페이지에서도 막히지 않는다. -->
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=7c63c6bf42ffbd04655016b4ff4016d1&libraries=services"></script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0f172a;
+            color: #1e293b;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Mobile Shell Frame Setup */
+        .mobile-wrapper {
+            width: 100%;
+            max-width: 390px;
+            height: 100vh;
+            max-height: 844px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        @media (min-width: 450px) {
+            .mobile-wrapper {
+                border-radius: 44px;
+                border: 10px solid #1e293b;
+                height: 844px;
+                margin: 20px auto;
+            }
+        }
+
+        /* Hide Scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Gauge Needle Rotation Transition */
+        .gauge-needle {
+            transform-origin: 100px 100px;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Modal Animation */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.92) translateY(10px);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Pulse Ring Effect for GPS Marker */
+        @keyframes gps-glow {
+            0% { transform: scale(0.9); opacity: 0.9; }
+            50% { transform: scale(1.3); opacity: 0.3; }
+            100% { transform: scale(0.9); opacity: 0.9; }
+        }
+        .gps-glow-effect {
+            animation: gps-glow 1.8s infinite ease-in-out;
+        }
+
+        /* ==========================================
+           FullCalendar 6.1.8 스타일 (초안 디자인 + 다크모드 대응)
+           ========================================== */
+        #fullCalendar .fc {
+            --fc-border-color: transparent;
+            --fc-page-bg-color: transparent;
+            --fc-today-bg-color: transparent;
+            font-size: 13px;
+        }
+
+        .fc .fc-header-toolbar { margin-bottom: 8px; }
+        .fc .fc-toolbar-title { font-size: 1rem; font-weight: 700; color: #1e293b; }
+        .dark .fc .fc-toolbar-title { color: #f1f5f9; }
+
+        .fc .fc-button-primary {
+            height: 36px;
+            min-width: 36px;
+            padding: 0 10px;
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: none;
+        }
+        .dark .fc .fc-button-primary { color: #cbd5e1; }
+        .fc .fc-button-primary:not(:disabled):hover,
+        .fc .fc-button-primary:not(:disabled):active { background: #f1f5f9; color: #0f172a; }
+        .dark .fc .fc-button-primary:not(:disabled):hover,
+        .dark .fc .fc-button-primary:not(:disabled):active { background: #334155; color: #f8fafc; }
+        .fc .fc-button-primary:disabled { background: transparent; opacity: 0.35; }
+        .fc .fc-button-primary:focus-visible { outline: 3px solid #3b82f6; outline-offset: 1px; box-shadow: none; }
+
+        .fc .fc-col-header-cell-cushion {
+            padding: 6px 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-decoration: none;
+        }
+        .fc .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion { color: #ef4444; }
+        .fc .fc-col-header-cell.fc-day-sat .fc-col-header-cell-cushion { color: #3b82f6; }
+
+        .fc .fc-daygrid-day { cursor: pointer; }
+        .fc .fc-daygrid-day-frame { min-height: 54px; }
+        .fc .fc-daygrid-day-top { flex-direction: row; justify-content: center; }
+        .fc .fc-daygrid-day-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            margin-top: 4px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            text-decoration: none;
+        }
+        .dark .fc .fc-daygrid-day-number { color: #cbd5e1; }
+        .fc .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number { color: #ef4444; }
+        .fc .fc-daygrid-day.fc-day-sat .fc-daygrid-day-number { color: #3b82f6; }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: #2563eb; color: #ffffff; }
+
+        @media (hover: hover) {
+            .fc .fc-daygrid-day:hover { background: #eff6ff; border-radius: 10px; }
+            .dark .fc .fc-daygrid-day:hover { background: rgba(51, 65, 85, 0.6); }
+        }
+
+        /* 이벤트는 막대 대신 상태 점 하나로 표시 */
+        .fc .fc-daygrid-day-events { min-height: 14px; margin: 0; }
+        .fc .fc-daygrid-event-harness { display: flex; justify-content: center; }
+        .fc .fc-event,
+        .fc .fc-daygrid-block-event {
+            margin: 2px 0 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+        .fc .fc-event-main { padding: 0; }
+
+        .log-dot { display: block; width: 8px; height: 8px; border-radius: 50%; }
+        .log-dot--completed { background: #10b981; }
+        .log-dot--partial { background: #f59e0b; }
+        .log-dot--incomplete { background: #cbd5e1; }
+        .dark .log-dot--incomplete { background: #475569; }
+
+        /* ==========================================
+           타이머 / 스톱워치 모달
+           ========================================== */
+        .seg-btn {
+            height: 36px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .seg-btn[aria-pressed="true"] { background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+        .dark .seg-btn { color: #94a3b8; }
+        .dark .seg-btn[aria-pressed="true"] { background: #334155; color: #93c5fd; }
+
+        .preset-btn {
+            height: 34px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 999px;
+            background: #ffffff;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .preset-btn[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+        .preset-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+        .dark .preset-btn { border-color: #475569; background: #1e293b; color: #cbd5e1; }
+        .dark .preset-btn[aria-pressed="true"] { border-color: #60a5fa; background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+
+        .clock-finished { color: #dc2626 !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; animation: none !important; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
+
+    <!-- Mobile App Container -->
+    <div class="mobile-wrapper bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+        
+        <!-- Top Status Bar -->
+        <div class="bg-brand-600 dark:bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-semibold z-30 transition-colors">
+            <span id="statusBarTime">11:55</span>
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-signal text-[10px]"></i>
+                <i class="fa-solid fa-wifi text-[10px]"></i>
+                <i class="fa-solid fa-battery-full text-xs"></i>
+            </div>
+        </div>
+
+        <!-- Main Header (와이어프레임 20번: 메뉴 / 로고 / 마이페이지) -->
+        <header class="bg-brand-600 dark:bg-slate-900 text-white px-3 py-3 shadow-md flex justify-between items-center z-20 border-b border-white/10">
+            <div class="flex items-center gap-1.5">
+                <button type="button" onclick="switchTab('tab-menu')" aria-label="메뉴 열기" class="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center transition">
+                    <i class="fa-solid fa-bars text-base" aria-hidden="true"></i>
+                </button>
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-white text-brand-600 dark:bg-brand-500 dark:text-white flex items-center justify-center font-black text-xl shadow-md">
+                        R
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h1 class="text-lg font-black tracking-tight leading-none">RoutineNote</h1>
+                            <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.0</span>
+                        </div>
+                        <p class="text-[10px] text-blue-100 dark:text-slate-400 font-medium mt-0.5">스마트 루틴 & GPS 지도 노트</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Controls: Dark Mode Toggle & 마이페이지 -->
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="toggleDarkMode()" aria-label="다크 모드 전환" class="w-8 h-8 rounded-full bg-white/10 dark:bg-slate-800 hover:bg-white/20 flex items-center justify-center transition text-amber-300 dark:text-amber-400">
+                    <i class="fa-solid fa-sun text-sm dark:hidden" aria-hidden="true"></i>
+                    <i class="fa-solid fa-moon text-sm hidden dark:inline" aria-hidden="true"></i>
+                </button>
+                <button type="button" id="profileButton" aria-label="마이페이지" class="w-8 h-8 rounded-full bg-white/10 dark:bg-slate-800 hover:bg-white/20 flex items-center justify-center transition">
+                    <i class="fa-regular fa-user text-sm" aria-hidden="true"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Screen Body -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20 bg-slate-100 dark:bg-slate-900/90" id="mainScrollBody">
+
+            <!-- TAB 1: 오늘의 루틴 (Today's Routine & Checklist) -->
+            <section id="tab-today" class="tab-screen block p-4 space-y-4">
+                
+                <!-- Progress Header Banner -->
+                <div class="bg-gradient-to-br from-brand-600 via-blue-600 to-indigo-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-blue-500/10 border border-white/10 relative overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="text-[10px] bg-white/20 dark:bg-brand-500/30 px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">Today Routine</span>
+                            <h2 class="text-xl font-bold mt-1.5" id="todayBannerDate">2026년 10월 7일 (수)</h2>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">66%</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 backdrop-blur-md">
+                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 66%;"></div>
+                    </div>
+
+                    <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
+                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i>340 kcal 소모</span>
+                    </div>
+                </div>
+
+                <!-- Today Workout Checklist Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-brand-500"></i> 오늘 루틴 체크리스트
+                        </h3>
+                        <button onclick="openDetailModal(getTodayKey())" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1">
+                            + 항목 수정/추가 <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <div id="todayChecklistContainer" class="space-y-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Quick Routine Launcher -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="switchTab('tab-running')" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-person-running"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-emerald-100 block">GPS 실시간</span>
+                            <span class="text-sm font-bold">런닝 시작하기</span>
+                        </div>
+                    </button>
+
+                    <button onclick="switchTab('tab-calendar')" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-calendar-days"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-indigo-100 block">월간 일지</span>
+                            <span class="text-sm font-bold">캘린더 전체보기</span>
+                        </div>
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- TAB 2: 런닝 지도 (Kakao Map GPS Tracker v2.0) -->
+            <section id="tab-running" class="tab-screen hidden p-4 space-y-4">
+                
+                <!-- Running Metrics Display -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+                    <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
+                            <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+                                <span id="runDistance">5.2</span> <span class="text-xs font-medium text-slate-400">km</span>
+                            </div>
+                        </div>
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
+                            <div class="text-2xl font-black text-brand-600 dark:text-brand-400 mt-1" id="runTimer">
+                                00:28:40
+                            </div>
+                        </div>
+                        <div class="text-center px-1">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
+                            <div class="text-2xl font-black text-red-500 mt-1">
+                                <span id="runCalories">415</span> <span class="text-xs font-medium text-slate-400">kcal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
+                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">5'27"</strong> /km</div>
+                        <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
+                    </div>
+                </div>
+
+                <!-- Kakao Map Container -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">카카오맵 v2.0 GPS 실시간 트래커</h3>
+                        </div>
+                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-mono">Kakao API</span>
+                    </div>
+
+                    <!-- Kakao Map Div Container -->
+                    <div class="relative w-full h-72 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">
+                        <div id="kakaoMap" class="w-full h-full block"></div>
+                        
+                        <!-- Map Fallback Canvas (In case Kakao API key or domain security blocks rendering in iFrame) -->
+                        <canvas id="fallbackMapCanvas" class="hidden absolute inset-0 w-full h-full"></canvas>
+
+                        <!-- Map Controls Floating Widget -->
+                        <div class="absolute top-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 z-10">
+                            <i class="fa-solid fa-location-dot text-red-500" aria-hidden="true"></i> <span id="locationBadgeText">GPS 위치 탐색 중...</span>
+                        </div>
+
+                        <div class="absolute bottom-3 right-3 flex flex-col gap-2 z-10">
+                            <button onclick="recenterKakaoMap()" class="w-9 h-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-white active:scale-95 transition">
+                                <i class="fa-solid fa-crosshairs text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GPS Control Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="toggleRunBtn" onclick="toggleRunningSimulation()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-play" id="toggleRunIcon"></i> <span id="toggleRunText">트래킹 시작</span>
+                        </button>
+                        <button onclick="resetRunningData()" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-arrow-rotate-right"></i> 경로 초기화
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB 3: 캘린더 (FullCalendar 6.1.8 + 연속 달성 + 타이머/스톱워치) -->
+            <section id="tab-calendar" class="tab-screen hidden p-4 space-y-4">
+
+                <!-- 와이어프레임 21번: FullCalendar 월간 달력 -->
+                <div id="calendarCard" aria-busy="true" class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 transition-opacity">
+                    <div id="fullCalendar"></div>
+
+                    <div class="flex items-center justify-center space-x-4 pt-3 mt-2 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span>루틴 완수</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                            <span>일부 완료</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            <span>미완료</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 와이어프레임 22번: 연속 달성 날짜 -->
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700/40 px-4 py-3.5 text-center" aria-live="polite">
+                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        <span aria-hidden="true">🔥</span>
+                        연속 달성 날짜:
+                        <strong id="streakCount" class="text-3xl font-black text-amber-700 dark:text-amber-300 mx-0.5 align-middle tabular-nums">-</strong><span id="streakSuffix">일째 성공 중</span>
+                    </p>
+                </div>
+
+                <!-- 와이어프레임 23번: 타이머 / 스톱워치 바로가기 -->
+                <button type="button" id="timerOpenButton" class="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-brand-600 dark:border-brand-500 text-brand-600 dark:text-brand-400 bg-white dark:bg-slate-800 font-bold text-sm hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i> 타이머 / 스톱워치
+                </button>
+
+                <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-2xl p-4 text-xs text-blue-900 dark:text-blue-200 flex items-start space-x-3">
+                    <i class="fa-solid fa-circle-info text-brand-500 text-base mt-0.5"></i>
+                    <div>
+                        <strong class="font-bold block mb-0.5">V2 캘린더 기능 안내</strong>
+                        날짜를 클릭하면 그날 수행한 운동 루틴을 확인하고, <strong>새로운 운동 항목을 직접 추가</strong>하거나 완료 상태를 변경할 수 있습니다.
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB 4: 다이어트 & BMI 분석 -->
+            <section id="tab-body" class="tab-screen hidden p-4 space-y-4">
+                
+                <!-- Body Data Calculator Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-weight-scale text-brand-500"></i> 신체 데이터 설정 및 계산
+                        </h3>
+                        <p class="text-xs text-slate-400">BMI 수치 및 일일 권장 기초대사량을 자동 산출합니다.</p>
+                    </div>
+
+                    <!-- Gender Button Group -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">성별 선택</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" id="genderMale" onclick="setGender('male')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300">
+                                <i class="fa-solid fa-mars"></i> 남성
+                            </button>
+                            <button type="button" id="genderFemale" onclick="setGender('female')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300">
+                                <i class="fa-solid fa-venus"></i> 여성
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Inputs Grid -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">나이 (세)</label>
+                            <input type="number" id="inputAge" value="28" min="10" max="100" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">몸무게 (kg)</label>
+                            <input type="number" id="inputWeight" value="72.5" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">키 (cm)</label>
+                            <input type="number" id="inputHeight" value="175" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+
+                    <button onclick="calculateBodyMetrics()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> BMI & BMR 계산 업데이트
+                    </button>
+                </div>
+
+                <!-- Diet Period Comparison & SVG Chart Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                    <div class="text-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-extrabold text-slate-800 dark:text-slate-100">다이어트 기간 비교</h3>
+                        <p class="text-xs text-slate-400">(최근 6개월 체중 변화 및 BMI 분석)</p>
+                    </div>
+
+                    <!-- Weight Change SVG Chart -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-chart-line text-brand-500"></i> 체중 변화 추이 (kg)
+                        </h4>
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                            <svg viewBox="0 0 300 110" class="w-full h-auto overflow-visible">
+                                <line x1="30" y1="20" x2="290" y2="20" stroke="#cbd5e1" stroke-dasharray="2" />
+                                <line x1="30" y1="50" x2="290" y2="50" stroke="#cbd5e1" stroke-dasharray="2" />
+                                <line x1="30" y1="80" x2="290" y2="80" stroke="#cbd5e1" stroke-dasharray="2" />
+
+                                <text x="22" y="24" font-size="8" fill="#94a3b8" text-anchor="end">80kg</text>
+                                <text x="22" y="54" font-size="8" fill="#94a3b8" text-anchor="end">75kg</text>
+                                <text x="22" y="84" font-size="8" fill="#94a3b8" text-anchor="end">70kg</text>
+
+                                <path d="M 40 30 L 85 52 L 135 48 L 185 48 L 235 78 L 280 62 L 280 95 L 40 95 Z" fill="url(#chartGradient)" opacity="0.2" />
+
+                                <defs>
+                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#3b82f6" />
+                                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                                    </linearGradient>
+                                </defs>
+
+                                <path d="M 40 30 L 85 52 L 135 48 L 185 48 L 235 78 L 280 62" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+                                <circle cx="40" cy="30" r="3.5" fill="#3b82f6" />
+                                <circle cx="85" cy="52" r="3.5" fill="#3b82f6" />
+                                <circle cx="135" cy="48" r="3.5" fill="#3b82f6" />
+                                <circle cx="185" cy="48" r="3.5" fill="#3b82f6" />
+                                <circle cx="235" cy="78" r="5" fill="#10b981" stroke="#ffffff" stroke-width="2" />
+                                <circle cx="280" cy="62" r="3.5" fill="#3b82f6" />
+
+                                <text x="40" y="105" font-size="8" fill="#64748b" text-anchor="middle">5월</text>
+                                <text x="85" y="105" font-size="8" fill="#64748b" text-anchor="middle">6월</text>
+                                <text x="135" y="105" font-size="8" fill="#64748b" text-anchor="middle">7월</text>
+                                <text x="185" y="105" font-size="8" fill="#64748b" text-anchor="middle">8월</text>
+                                <text x="235" y="105" font-size="8" fill="#3b82f6" font-weight="bold" text-anchor="middle">9월</text>
+                                <text x="280" y="105" font-size="8" fill="#64748b" text-anchor="middle">10월</text>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- BMI Gauge Meter SVG -->
+                    <div class="pt-2">
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 text-center">BMI 수치 판정 게이지</h4>
+                        <div class="relative w-48 mx-auto">
+                            <svg viewBox="0 0 200 115" class="w-full">
+                                <path d="M 20 100 A 80 80 0 0 1 60 30.7" fill="none" stroke="#ef4444" stroke-width="18" />
+                                <path d="M 60 30.7 A 80 80 0 0 1 100 20" fill="none" stroke="#f59e0b" stroke-width="18" />
+                                <path d="M 100 20 A 80 80 0 0 1 140 30.7" fill="none" stroke="#10b981" stroke-width="18" />
+                                <path d="M 140 30.7 A 80 80 0 0 1 180 100" fill="none" stroke="#3b82f6" stroke-width="18" />
+
+                                <text x="35" y="85" font-size="7.5" font-weight="bold" fill="#ffffff">비만</text>
+                                <text x="70" y="45" font-size="7.5" font-weight="bold" fill="#ffffff">과체중</text>
+                                <text x="118" y="45" font-size="7.5" font-weight="bold" fill="#ffffff">정상</text>
+                                <text x="150" y="85" font-size="7.5" font-weight="bold" fill="#ffffff">저체중</text>
+
+                                <!-- Gauge Pointer Needle -->
+                                <g id="bmiGaugeNeedle" class="gauge-needle" style="transform: rotate(25deg);">
+                                    <polygon points="100,25 96,100 104,100" fill="#1e293b" class="dark:fill-slate-100" />
+                                    <circle cx="100" cy="100" r="7" fill="#1e293b" class="dark:fill-slate-100" />
+                                    <circle cx="100" cy="100" r="2.5" fill="#ffffff" />
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Calculated Result Numbers -->
+                    <div class="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 text-slate-700 dark:text-slate-200">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-slate-500">현재 계산된 BMI 수치:</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.67 (정상)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-slate-500">기초대사량 (BMR):</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">1,695 kcal</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-slate-500">다이어트 달성률:</span>
+                            <span class="font-bold text-brand-600 dark:text-brand-400">90% 달성</span>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB 5: 메뉴 (App Settings & Menu) -->
+            <section id="tab-menu" class="tab-screen hidden p-4 space-y-4">
+                
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-1">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">RoutineNote v2.0 메뉴</h3>
+                    
+                    <button onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-calculator text-blue-500 w-4 text-center"></i> BMI 지수 & 신체 데이터
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                    </button>
+                    
+                    <button onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-chart-pie text-emerald-500 w-4 text-center"></i> 다이어트 기간 비교 분석
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                    </button>
+
+                    <button onclick="switchTab('tab-running')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-map-location-dot text-indigo-500 w-4 text-center"></i> 런닝 지도 (Kakao GPS)
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                    </button>
+
+                    <button onclick="switchTab('tab-calendar')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-calendar-check text-purple-500 w-4 text-center"></i> 월간 캘린더 전체보기
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                    </button>
+                </div>
+
+                <!-- App Information Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-2 text-slate-500 dark:text-slate-400">
+                    <div class="flex justify-between">
+                        <span>앱 버전</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">v2.0 (Kakao Map SDK)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>지도 엔진</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">카카오맵 JavaScript API</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>개발 모드</span>
+                        <span class="font-bold text-emerald-600">SPA 모바일 웹 싱글파일</span>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- Bottom Tab Navigation Bar -->
+        <nav class="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-2 flex justify-around items-center z-30 shadow-lg">
+            <button onclick="switchTab('tab-today')" id="nav-tab-today" class="nav-btn flex-1 flex flex-col items-center py-1 text-brand-600 dark:text-brand-400 font-bold transition">
+                <i class="fa-solid fa-house text-base mb-0.5"></i>
+                <span class="text-[10px]">오늘 루틴</span>
+            </button>
+            <button onclick="switchTab('tab-running')" id="nav-tab-running" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-person-running text-base mb-0.5"></i>
+                <span class="text-[10px]">런닝 지도</span>
+            </button>
+            <button onclick="switchTab('tab-calendar')" id="nav-tab-calendar" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-calendar-days text-base mb-0.5"></i>
+                <span class="text-[10px]">캘린더</span>
+            </button>
+            <button onclick="switchTab('tab-body')" id="nav-tab-body" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-chart-simple text-base mb-0.5"></i>
+                <span class="text-[10px]">다이어트/BMI</span>
+            </button>
+            <button onclick="switchTab('tab-menu')" id="nav-tab-menu" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-bars text-base mb-0.5"></i>
+                <span class="text-[10px]">메뉴</span>
+            </button>
+        </nav>
+
+        <!-- V2 ENHANCED DETAIL MODAL POPUP -->
+        <div id="detailModal" inert role="dialog" aria-modal="true" aria-labelledby="modalDateTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden" id="detailModalCard">
+                
+                <!-- Modal Header -->
+                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="modalDateTitle">
+                        <i class="fa-solid fa-calendar-day"></i> 2026년 10월 7일 운동 목록
+                    </h3>
+                    <button onclick="closeDetailModal()" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Modal Body: Routine Checklist -->
+                <div class="p-3.5 space-y-2.5 max-h-[280px] overflow-y-auto no-scrollbar" id="modalRoutineList">
+                    <!-- Dynamic items rendered via JS -->
+                </div>
+
+                <!-- Modal V2 Feature: Add New Item Inline Form -->
+                <div class="px-3.5 pb-2 border-t border-slate-100 dark:border-slate-700/60 pt-2.5">
+                    <form onsubmit="addNewRoutineItem(event)" class="flex items-center gap-2">
+                        <input type="text" id="newRoutineInput" placeholder="+ 새 운동 루틴 입력..." class="flex-1 bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow">
+                            추가
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-700/60 flex gap-2">
+                    <button onclick="closeDetailModal()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                        확인 및 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 타이머 / 스톱워치 모달 (와이어프레임 23번) -->
+        <div id="timerModal" inert role="dialog" aria-modal="true" aria-labelledby="timerModalTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden">
+
+                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="timerModalTitle">
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i> 타이머 / 스톱워치
+                    </h3>
+                    <button type="button" onclick="closeTimerModal()" aria-label="닫기" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="p-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl" role="group" aria-label="시계 종류">
+                        <button type="button" class="seg-btn" id="modeStopwatchButton" aria-pressed="true">스톱워치</button>
+                        <button type="button" class="seg-btn" id="modeTimerButton" aria-pressed="false">타이머</button>
+                    </div>
+
+                    <p id="clockDisplay" role="timer" class="text-center text-5xl font-black tabular-nums text-slate-800 dark:text-slate-100 py-3">00:00:00</p>
+
+                    <!-- 타이머 모드에서만 보이는 휴식 시간 선택 -->
+                    <div id="presetRow" class="hidden">
+                        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="휴식 시간 선택">
+                            <button type="button" class="preset-btn" data-seconds="30">30초</button>
+                            <button type="button" class="preset-btn" data-seconds="60">1분</button>
+                            <button type="button" class="preset-btn" data-seconds="180">3분</button>
+                            <button type="button" class="preset-btn" data-seconds="300">5분</button>
+                        </div>
+                    </div>
+
+                    <p id="clockMessage" role="status" class="text-center text-xs text-slate-500 dark:text-slate-400 min-h-[16px]"></p>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="clockToggleButton" class="col-span-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">시작</button>
+                        <button type="button" id="clockResetButton" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition">초기화</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Toast Notification Engine UI -->
+        <div id="toast" class="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600" id="toastIcon"></i>
+            <span id="toastMsg">루틴 상태가 업데이트 되었습니다.</span>
+        </div>
+
+    </div>
+
+    <script>
+        /* ==========================================
+           1. Core Application State
+           ========================================== */
+        // [수업 규칙] 화면 글자는 textContent 로만 넣고, HTML 문자열은 삽입하지 않는다.
+        // [수업 규칙] 운동 기록은 Promise + async/await 로 불러온 뒤에 달력에 반영한다.
+        // [수업 규칙] 변수와 함수 이름은 camelCase.
+        const mockUserId = 1;
+        const mockDelayMs = 400;
+        const weekdayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const statusLabels = {
+            completed: '루틴 완수',
+            partial: '일부 완료',
+            incomplete: '미완료'
+        };
+
+        // 날짜별 운동 항목: { '2026-10-10': [{ id, name, completed }] }
+        let workoutState = {};
+        // WORKOUT_LOG 형태: workoutLogId, userId, workoutDate, isCompleted, currentStreak
+        let workoutLogs = [];
+        let isWorkoutLoaded = false;
+        let nextRoutineId = 1;
+
+        let currentActiveDate = formatDateKey(new Date());
+        let calendarInstance = null;
+        let lastFocusedElement = null;
+        let selectedGender = "male";
+
+        // GPS Running State
+        let isRunning = false;
+        let runTimerInterval = null;
+        let secondsElapsed = 1720; // 00:28:40
+        let distanceKm = 5.2;
+        let caloriesBurned = 415;
+
+        // Kakao Map Instances
+        let kakaoMapInstance = null;
+        let kakaoPolyline = null;
+        let kakaoMarker = null;
+        // 현재 위치 (GPS 를 받기 전/실패 시에는 이 기본 좌표를 쓴다)
+        let currentLat = 37.4852;
+        let currentLng = 126.7816;
+
+        // 타이머 / 스톱워치 상태 (baseMs: 멈춰 있을 때의 값. 스톱워치는 누적 시간, 타이머는 남은 시간)
+        const clockState = {
+            mode: 'stopwatch',
+            isRunning: false,
+            startedAt: 0,
+            baseMs: 0,
+            presetMs: 60000,
+            intervalId: null
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+
+            // Auto Clock
+            setInterval(() => {
+                const now = new Date();
+                const hrs = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('statusBarTime').textContent = `${hrs}:${mins}`;
+            }, 10000);
+        });
+
+        async function initApp() {
+            document.getElementById('todayBannerDate').textContent = formatKoreanDate(getTodayKey());
+
+            initCalendar();
+            bindHeaderButtons();
+            bindModalShortcuts();
+            bindClockEvents();
+            setClockMode('stopwatch');
+
+            renderTodayChecklist();   // 로딩 안내를 먼저 보여준다
+            calculateBodyMetrics();
+            initKakaoMap();
+
+            await loadWorkoutData();
+        }
+
+        /* ==========================================
+           2. SPA Navigation & Dark Mode
+           ========================================== */
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-screen').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400', 'font-bold');
+                btn.classList.add('text-slate-400', 'font-medium');
+            });
+
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-400', 'font-medium');
+                activeNav.classList.add('text-brand-600', 'dark:text-brand-400', 'font-bold');
+            }
+
+            document.getElementById('mainScrollBody').scrollTop = 0;
+
+            if (tabId === 'tab-running') {
+                setTimeout(relayoutKakaoMap, 100);
+            }
+
+            // 숨겨져 있던 탭에서 달력이 처음 보일 때 크기를 다시 계산한다
+            if (tabId === 'tab-calendar' && calendarInstance !== null) {
+                setTimeout(() => calendarInstance.updateSize(), 0);
+            }
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                showToast('라이트 모드로 전환되었습니다.');
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                showToast('다크 모드로 전환되었습니다.');
+            }
+        }
+
+        function bindHeaderButtons() {
+            document.getElementById('profileButton').addEventListener('click', () => {
+                showToast('마이페이지는 아직 준비 중이에요.');
+            });
+        }
+
+        /* ==========================================
+           3. 날짜 도우미 & DOM 도우미
+           ========================================== */
+        function getTodayKey() {
+            return formatDateKey(new Date());
+        }
+
+        // 로컬 시간 기준 'YYYY-MM-DD' (toISOString 은 시간대 때문에 하루 어긋날 수 있다)
+        function formatDateKey(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function parseDateKey(dateKey) {
+            const [year, month, day] = dateKey.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
+        function addDays(date, amount) {
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + amount);
+            return nextDate;
+        }
+
+        function formatKoreanDate(dateKey) {
+            const date = parseDateKey(dateKey);
+            return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdayNames[date.getDay()]})`;
+        }
+
+        function createIcon(iconClass) {
+            const iconElement = document.createElement('i');
+            iconElement.className = iconClass;
+            iconElement.setAttribute('aria-hidden', 'true');
+            return iconElement;
+        }
+
+        // 아이콘 + 글자를 안전하게 넣는다 (글자는 텍스트 노드로만 들어간다)
+        function setIconText(element, iconClass, text) {
+            element.replaceChildren(createIcon(iconClass), document.createTextNode(text));
+        }
+
+        function createMessageBox(text, className) {
+            const boxElement = document.createElement('div');
+            boxElement.className = className;
+            boxElement.textContent = text;
+            return boxElement;
+        }
+
+        /* ==========================================
+           4. 운동 기록 불러오기 (Promise + async/await)
+           ========================================== */
+
+        // Mock 데이터: 오늘 기준으로 과거 기록을 만든다 (null = 기록 없음)
+        function buildMockWorkoutState() {
+            const statusByDaysAgo = [
+                'done', 'done', 'done', 'done', 'done', 'done',                       // 1~6일 전: 6일 연속 완수
+                'partial',                                                            // 7일 전: 일부 완료 (연속 끊김)
+                'done', 'done', 'done',                                               // 8~10일 전
+                null,                                                                 // 11일 전: 기록 없음
+                'done', 'done',                                                       // 12~13일 전
+                'missed',                                                             // 14일 전: 전부 미완료
+                'done', 'done', 'done', 'done', 'done', 'done', 'done', 'done',       // 15~22일 전
+                null, 'done', 'done', 'partial', 'done', 'done', 'done'               // 23~29일 전
+            ];
+
+            const runningName = '🏃‍♂️ 런닝 (GPS 지도)';
+            const weightName = '🏋️ 운동 (웨이트)';
+            const stretchName = '🧘 휴식 및 스트레칭';
+
+            const today = new Date();
+            const mockState = {};
+            let routineId = 1;
+
+            const createItem = (name, completed) => ({ id: routineId++, name: name, completed: completed });
+
+            statusByDaysAgo.forEach((status, index) => {
+                if (status === null) return;
+
+                const dateKey = formatDateKey(addDays(today, -(index + 1)));
+                const secondName = index % 2 === 0 ? weightName : stretchName;
+
+                if (status === 'done') {
+                    mockState[dateKey] = [createItem(runningName, true), createItem(secondName, true)];
+                } else if (status === 'partial') {
+                    mockState[dateKey] = [createItem(runningName, true), createItem(secondName, false)];
+                } else {
+                    mockState[dateKey] = [createItem(weightName, false)];
+                }
+            });
+
+            // 오늘: 초안과 같은 3개 항목 (2개 완료)
+            mockState[getTodayKey()] = [
+                createItem(runningName, true),
+                createItem(weightName, true),
+                createItem(stretchName, false)
+            ];
+
+            // 모레: 예정된 운동
+            mockState[formatDateKey(addDays(today, 2))] = [createItem('🏋️ 운동 (하체 데이)', false)];
+
+            nextRoutineId = routineId;
+            return mockState;
+        }
+
+        // 서버 응답을 흉내 내는 Promise (실제 연동 시 이 함수를 fetch 로 교체)
+        function requestWorkoutData(userId) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    try {
+                        resolve(buildMockWorkoutState());
+                    } catch (error) {
+                        reject(error);
+                    }
+                }, mockDelayMs);
+            });
+        }
+
+        async function getWorkoutState(userId) {
+            // 백엔드가 준비되면 아래 주석을 풀고 Mock 호출을 지우면 된다.
+            // const response = await fetch(`/api/users/${userId}/workout-logs`);
+            // if (!response.ok) {
+            //     throw new Error(`운동 기록 요청 실패 (HTTP ${response.status})`);
+            // }
+            // return await response.json();
+
+            return await requestWorkoutData(userId);
+        }
+
+        async function loadWorkoutData() {
+            setCalendarLoading(true);
+
+            try {
+                workoutState = await getWorkoutState(mockUserId);
+                isWorkoutLoaded = true;
+                // 데이터가 도착한 뒤에만 화면(오늘 체크리스트 / 달력 / 연속 달성)을 갱신한다
+                refreshAllViews();
+            } catch (error) {
+                console.error('운동 기록 불러오기 실패:', error);
+                showToast('운동 기록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+            } finally {
+                setCalendarLoading(false);
+            }
+        }
+
+        function setCalendarLoading(isLoading) {
+            const cardElement = document.getElementById('calendarCard');
+            cardElement.classList.toggle('opacity-60', isLoading);
+            cardElement.setAttribute('aria-busy', String(isLoading));
+        }
+
+        /* ==========================================
+           5. WORKOUT_LOG 계산 / 연속 달성 / 화면 갱신
+           ========================================== */
+
+        // 하루의 상태: none(항목 없음) / completed(전부 완료) / partial(일부 완료) / incomplete(전부 미완료)
+        function getDayStatus(routines) {
+            if (!routines || routines.length === 0) return 'none';
+
+            const completedCount = routines.filter(item => item.completed).length;
+            if (completedCount === routines.length) return 'completed';
+            if (completedCount > 0) return 'partial';
+            return 'incomplete';
+        }
+
+        // 하루도 빠짐없이 이어진 '루틴 완수'만 연속으로 센다
+        function applyStreakValues(rawLogs) {
+            const sortedLogs = [...rawLogs].sort((a, b) => a.workoutDate.localeCompare(b.workoutDate));
+
+            let runningStreak = 0;
+            let previousDateKey = null;
+            let previousCompleted = false;
+
+            return sortedLogs.map(log => {
+                const isNextDay = previousDateKey !== null
+                    && formatDateKey(addDays(parseDateKey(previousDateKey), 1)) === log.workoutDate;
+
+                if (!log.isCompleted) {
+                    runningStreak = 0;
+                } else if (previousCompleted && isNextDay) {
+                    runningStreak += 1;
+                } else {
+                    runningStreak = 1;
+                }
+
+                previousDateKey = log.workoutDate;
+                previousCompleted = log.isCompleted;
+
+                return { ...log, currentStreak: runningStreak };
+            });
+        }
+
+        // workoutState 로부터 WORKOUT_LOG 행을 만든다 (workoutLogId 는 Mock 용 임시 번호)
+        function buildWorkoutLogs() {
+            const dateKeys = Object.keys(workoutState)
+                .filter(dateKey => workoutState[dateKey].length > 0)
+                .sort();
+
+            const rawLogs = dateKeys.map((dateKey, index) => ({
+                workoutLogId: 1000 + index,
+                userId: mockUserId,
+                workoutDate: dateKey,
+                isCompleted: getDayStatus(workoutState[dateKey]) === 'completed'
+            }));
+
+            return applyStreakValues(rawLogs);
+        }
+
+        function calculateDisplayStreak() {
+            const completedLogs = workoutLogs
+                .filter(log => log.isCompleted)
+                .sort((a, b) => b.workoutDate.localeCompare(a.workoutDate));
+
+            if (completedLogs.length === 0) return 0;
+
+            const todayKey = getTodayKey();
+            const yesterdayKey = formatDateKey(addDays(new Date(), -1));
+            const latestLog = completedLogs[0];
+
+            // 가장 최근 완수 기록이 오늘 또는 어제여야 연속이 이어지는 중이다
+            const isStreakAlive = latestLog.workoutDate === todayKey || latestLog.workoutDate === yesterdayKey;
+            return isStreakAlive ? latestLog.currentStreak : 0;
+        }
+
+        function renderStreak() {
+            const streakDays = calculateDisplayStreak();
+
+            document.getElementById('streakCount').textContent = String(streakDays);
+            document.getElementById('streakSuffix').textContent = streakDays > 0
+                ? '일째 성공 중'
+                : '일 (오늘 운동으로 다시 시작해 보세요)';
+        }
+
+        function refreshAllViews() {
+            workoutLogs = buildWorkoutLogs();
+            renderTodayChecklist();
+            renderCalendarEvents();
+            renderStreak();
+        }
+
+        /* ==========================================
+           6. 오늘의 체크리스트 (초안 기능 유지, DOM API 로 재작성)
+           ========================================== */
+        function updateTodayProgress(completedCount, totalCount) {
+            const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+            document.getElementById('todayPercentText').textContent = percent + '%';
+            document.getElementById('todayProgressBar').style.width = percent + '%';
+            setIconText(
+                document.getElementById('todayTaskSummary'),
+                'fa-solid fa-circle-check text-emerald-400 mr-1',
+                `${totalCount}개 중 ${completedCount}개 완료`
+            );
+        }
+
+        function createCheckBox(isCompleted, extraClass) {
+            const boxElement = document.createElement('span');
+            boxElement.className = `w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition ${extraClass} ${isCompleted ? 'bg-brand-600 text-white' : 'border-2 border-slate-300 dark:border-slate-600 text-transparent'}`;
+            boxElement.appendChild(createIcon('fa-solid fa-check'));
+            return boxElement;
+        }
+
+        function renderTodayChecklist() {
+            const container = document.getElementById('todayChecklistContainer');
+            const todayKey = getTodayKey();
+            const routines = workoutState[todayKey] || [];
+
+            container.replaceChildren();
+
+            if (!isWorkoutLoaded) {
+                container.appendChild(createMessageBox('운동 기록을 불러오는 중이에요.', 'text-center py-4 text-xs text-slate-400'));
+                return;
+            }
+
+            if (routines.length === 0) {
+                container.appendChild(createMessageBox('오늘 등록된 운동 루틴이 없습니다.', 'text-center py-4 text-xs text-slate-400'));
+                updateTodayProgress(0, 0);
+                return;
+            }
+
+            let completedCount = 0;
+
+            routines.forEach(item => {
+                if (item.completed) completedCount++;
+
+                const rowElement = document.createElement('div');
+                rowElement.className = `flex items-center justify-between p-2.5 rounded-xl border ${item.completed ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'} transition`;
+
+                const toggleButton = document.createElement('button');
+                toggleButton.type = 'button';
+                toggleButton.className = 'flex items-center space-x-3 text-left';
+                toggleButton.setAttribute('aria-pressed', String(item.completed));
+                toggleButton.addEventListener('click', () => toggleRoutineStatus(todayKey, item.id));
+
+                const nameElement = document.createElement('span');
+                nameElement.className = `text-xs font-bold ${item.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`;
+                nameElement.textContent = item.name;
+
+                toggleButton.append(createCheckBox(item.completed, ''), nameElement);
+
+                const badgeElement = document.createElement('span');
+                badgeElement.className = `text-[10px] font-bold px-2 py-0.5 rounded ${item.completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`;
+                badgeElement.textContent = item.completed ? '완료' : '진행중';
+
+                rowElement.append(toggleButton, badgeElement);
+                container.appendChild(rowElement);
+            });
+
+            updateTodayProgress(completedCount, routines.length);
+        }
+
+        /* ==========================================
+           7. FullCalendar 6.1.8 (와이어프레임 21번)
+           ========================================== */
+        function initCalendar() {
+            const calendarElement = document.getElementById('fullCalendar');
+
+            if (typeof FullCalendar === 'undefined') {
+                calendarElement.textContent = '달력을 불러오지 못했어요. 네트워크 연결을 확인해 주세요.';
+                return;
+            }
+
+            calendarInstance = new FullCalendar.Calendar(calendarElement, {
+                initialView: 'dayGridMonth',
+                locale: 'ko',
+                height: 'auto',
+                fixedWeekCount: false,
+                headerToolbar: { left: 'prev', center: 'title', right: 'today next' },
+                buttonText: { today: '오늘' },
+                titleFormat: { year: 'numeric', month: 'long' },
+                dayMaxEvents: 1,
+                eventInteractive: true,
+                dayCellContent: (arg) => String(arg.date.getDate()),
+                eventContent: createEventContent,
+                dateClick: (info) => openDetailModal(info.dateStr),
+                eventClick: (info) => openDetailModal(info.event.startStr.slice(0, 10))
+            });
+
+            calendarInstance.render();
+        }
+
+        // 이벤트를 막대 대신 상태 점으로 그린다. DOM 노드를 직접 만들어 넘긴다.
+        function createEventContent(arg) {
+            const status = arg.event.extendedProps.status;
+
+            const dotElement = document.createElement('span');
+            dotElement.className = `log-dot log-dot--${status}`;
+            dotElement.setAttribute('role', 'img');
+            dotElement.setAttribute('aria-label', statusLabels[status]);
+
+            return { domNodes: [dotElement] };
+        }
+
+        function buildCalendarEvents() {
+            return workoutLogs.map(log => {
+                const status = getDayStatus(workoutState[log.workoutDate]);
+
+                return {
+                    id: String(log.workoutLogId),
+                    title: statusLabels[status],
+                    start: log.workoutDate,
+                    allDay: true,
+                    extendedProps: {
+                        status: status,
+                        isCompleted: log.isCompleted,
+                        currentStreak: log.currentStreak
+                    }
+                };
+            });
+        }
+
+        function renderCalendarEvents() {
+            if (calendarInstance === null) return;
+
+            calendarInstance.removeAllEvents();
+            calendarInstance.addEventSource(buildCalendarEvents());
+        }
+
+        /* ==========================================
+           8. 모달 공통 / 날짜 상세 모달 (운동 항목 확인·추가·삭제)
+           ========================================== */
+        function isModalOpen(modalElement) {
+            return !modalElement.classList.contains('opacity-0');
+        }
+
+        function showModalElement(modalElement) {
+            lastFocusedElement = document.activeElement;
+
+            modalElement.inert = false;
+            modalElement.classList.remove('opacity-0', 'pointer-events-none');
+
+            const firstButton = modalElement.querySelector('button');
+            if (firstButton) firstButton.focus();
+        }
+
+        function hideModalElement(modalElement) {
+            modalElement.classList.add('opacity-0', 'pointer-events-none');
+            modalElement.inert = true;
+
+            if (lastFocusedElement && document.contains(lastFocusedElement)) {
+                lastFocusedElement.focus();
+            }
+        }
+
+        function bindModalShortcuts() {
+            const detailModal = document.getElementById('detailModal');
+            const timerModal = document.getElementById('timerModal');
+
+            // 어두운 배경을 누르면 닫기
+            detailModal.addEventListener('click', (event) => {
+                if (event.target === detailModal) closeDetailModal();
+            });
+            timerModal.addEventListener('click', (event) => {
+                if (event.target === timerModal) closeTimerModal();
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+
+                if (isModalOpen(detailModal)) {
+                    closeDetailModal();
+                } else if (isModalOpen(timerModal)) {
+                    closeTimerModal();
+                }
+            });
+        }
+
+        function openDetailModal(dateStr) {
+            currentActiveDate = dateStr;
+
+            const status = getDayStatus(workoutState[dateStr]);
+            const titleText = status === 'none'
+                ? `${formatKoreanDate(dateStr)} 운동 목록`
+                : `${formatKoreanDate(dateStr)} 운동 목록 · ${statusLabels[status]}`;
+
+            setIconText(document.getElementById('modalDateTitle'), 'fa-solid fa-calendar-day', titleText);
+            renderModalRoutineList();
+
+            showModalElement(document.getElementById('detailModal'));
+        }
+
+        function closeDetailModal() {
+            hideModalElement(document.getElementById('detailModal'));
+            refreshAllViews();
+        }
+
+        function createModalEmptyState() {
+            const boxElement = document.createElement('div');
+            boxElement.className = 'text-center py-6 text-xs text-slate-400';
+
+            const iconElement = createIcon('fa-solid fa-dumbbell text-xl mb-1.5 block opacity-50');
+            boxElement.append(
+                iconElement,
+                '등록된 운동 항목이 없습니다.',
+                document.createElement('br'),
+                '아래에서 새 운동을 추가해 보세요!'
+            );
+            return boxElement;
+        }
+
+        function createModalRoutineRow(item, dateStr) {
+            const rowElement = document.createElement('div');
+            rowElement.className = 'flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700/60';
+
+            const leftElement = document.createElement('div');
+            leftElement.className = 'flex items-center space-x-2.5';
+
+            const toggleButton = document.createElement('button');
+            toggleButton.type = 'button';
+            toggleButton.className = `w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition ${item.completed ? 'bg-brand-600 text-white' : 'border-2 border-slate-300 dark:border-slate-600 text-transparent bg-white dark:bg-slate-800'}`;
+            toggleButton.setAttribute('aria-label', '완료 상태 바꾸기');
+            toggleButton.setAttribute('aria-pressed', String(item.completed));
+            toggleButton.appendChild(createIcon('fa-solid fa-check'));
+            toggleButton.addEventListener('click', () => toggleRoutineStatus(dateStr, item.id));
+
+            const nameElement = document.createElement('span');
+            nameElement.className = `text-xs font-bold ${item.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`;
+            nameElement.textContent = item.name;
+
+            leftElement.append(toggleButton, nameElement);
+
+            const rightElement = document.createElement('div');
+            rightElement.className = 'flex items-center space-x-1.5';
+
+            const badgeElement = document.createElement('span');
+            badgeElement.className = `text-[9px] font-bold px-1.5 py-0.5 rounded ${item.completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300'}`;
+            badgeElement.textContent = item.completed ? '완료' : '미완료';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'text-slate-300 dark:text-slate-600 hover:text-red-500 transition px-1';
+            deleteButton.setAttribute('aria-label', '운동 항목 삭제');
+            deleteButton.appendChild(createIcon('fa-solid fa-trash-can text-xs'));
+            deleteButton.addEventListener('click', () => deleteRoutineItem(dateStr, item.id));
+
+            rightElement.append(badgeElement, deleteButton);
+            rowElement.append(leftElement, rightElement);
+            return rowElement;
+        }
+
+        function renderModalRoutineList() {
+            const listElement = document.getElementById('modalRoutineList');
+            const routines = workoutState[currentActiveDate] || [];
+
+            listElement.replaceChildren();
+
+            if (routines.length === 0) {
+                listElement.appendChild(createModalEmptyState());
+                return;
+            }
+
+            routines.forEach(item => {
+                listElement.appendChild(createModalRoutineRow(item, currentActiveDate));
+            });
+        }
+
+        function toggleRoutineStatus(dateStr, itemId) {
+            if (!workoutState[dateStr]) return;
+
+            const item = workoutState[dateStr].find(routine => routine.id === itemId);
+            if (item) {
+                item.completed = !item.completed;
+                renderModalRoutineList();
+                refreshAllViews();
+                showToast(item.completed ? `"${item.name}" 완료 처리!` : `"${item.name}" 미완료 변경.`);
+            }
+        }
+
+        function deleteRoutineItem(dateStr, itemId) {
+            if (!workoutState[dateStr]) return;
+
+            workoutState[dateStr] = workoutState[dateStr].filter(routine => routine.id !== itemId);
+            renderModalRoutineList();
+            refreshAllViews();
+            showToast('운동 항목이 삭제되었습니다.');
+        }
+
+        function addNewRoutineItem(event) {
+            event.preventDefault();
+
+            const input = document.getElementById('newRoutineInput');
+            const inputValue = input.value.trim();
+            if (!inputValue) return;
+
+            if (!workoutState[currentActiveDate]) {
+                workoutState[currentActiveDate] = [];
+            }
+
+            workoutState[currentActiveDate].push({
+                id: nextRoutineId++,
+                name: inputValue,
+                completed: false
+            });
+
+            input.value = '';
+            renderModalRoutineList();
+            refreshAllViews();
+            showToast('새 운동 항목이 추가되었습니다!');
+        }
+
+        /* ==========================================
+           9. 타이머 / 스톱워치 모달 (와이어프레임 23번)
+           ========================================== */
+        function openTimerModal() {
+            showModalElement(document.getElementById('timerModal'));
+        }
+
+        function closeTimerModal() {
+            hideModalElement(document.getElementById('timerModal'));
+        }
+
+        // 지금 화면에 보여줄 시간(ms)
+        function getClockMs() {
+            if (!clockState.isRunning) return clockState.baseMs;
+
+            const elapsedMs = Date.now() - clockState.startedAt;
+            if (clockState.mode === 'stopwatch') {
+                return clockState.baseMs + elapsedMs;
+            }
+            return Math.max(0, clockState.baseMs - elapsedMs);
+        }
+
+        // 스톱워치는 내림, 타이머는 올림 (끝나기 직전까지 00:00:01 로 보이게)
+        function formatClock(ms, mode) {
+            const totalSeconds = mode === 'timer' ? Math.ceil(ms / 1000) : Math.floor(ms / 1000);
+            const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function setClockMessage(message) {
+            document.getElementById('clockMessage').textContent = message;
+        }
+
+        function stopClockInterval() {
+            clearInterval(clockState.intervalId);
+            clockState.intervalId = null;
+        }
+
+        function updateClockUi() {
+            const displayElement = document.getElementById('clockDisplay');
+            displayElement.textContent = formatClock(getClockMs(), clockState.mode);
+            displayElement.classList.toggle(
+                'clock-finished',
+                clockState.mode === 'timer' && !clockState.isRunning && clockState.baseMs === 0
+            );
+
+            const hasProgress = clockState.baseMs > 0
+                && (clockState.mode === 'stopwatch' || clockState.baseMs < clockState.presetMs);
+
+            let toggleLabel = '시작';
+            if (clockState.isRunning) {
+                toggleLabel = '일시정지';
+            } else if (hasProgress) {
+                toggleLabel = '계속';
+            }
+            document.getElementById('clockToggleButton').textContent = toggleLabel;
+
+            // 프리셋 버튼: 선택 표시 + 실행 중에는 변경 불가
+            document.getElementById('presetRow').querySelectorAll('button').forEach(presetButton => {
+                const presetMs = Number(presetButton.dataset.seconds) * 1000;
+                presetButton.setAttribute('aria-pressed', String(presetMs === clockState.presetMs));
+                presetButton.disabled = clockState.isRunning;
+            });
+        }
+
+        function setClockMode(mode) {
+            stopClockInterval();
+
+            clockState.mode = mode;
+            clockState.isRunning = false;
+            clockState.baseMs = mode === 'stopwatch' ? 0 : clockState.presetMs;
+
+            document.getElementById('modeStopwatchButton').setAttribute('aria-pressed', String(mode === 'stopwatch'));
+            document.getElementById('modeTimerButton').setAttribute('aria-pressed', String(mode === 'timer'));
+            document.getElementById('presetRow').classList.toggle('hidden', mode !== 'timer');
+
+            setClockMessage('');
+            updateClockUi();
+        }
+
+        function startClock() {
+            // 타이머가 끝난 뒤 다시 누르면 선택해 둔 시간부터 다시 시작
+            if (clockState.mode === 'timer' && clockState.baseMs <= 0) {
+                clockState.baseMs = clockState.presetMs;
+            }
+
+            clockState.isRunning = true;
+            clockState.startedAt = Date.now();
+            clockState.intervalId = setInterval(tickClock, 200);
+
+            setClockMessage('');
+            updateClockUi();
+        }
+
+        function pauseClock() {
+            // isRunning 을 끄기 전에 현재 값을 먼저 저장해야 한다
+            clockState.baseMs = getClockMs();
+            clockState.isRunning = false;
+            stopClockInterval();
+            updateClockUi();
+        }
+
+        function resetClock() {
+            stopClockInterval();
+
+            clockState.isRunning = false;
+            clockState.baseMs = clockState.mode === 'stopwatch' ? 0 : clockState.presetMs;
+
+            setClockMessage('');
+            updateClockUi();
+        }
+
+        function tickClock() {
+            const currentMs = getClockMs();
+            document.getElementById('clockDisplay').textContent = formatClock(currentMs, clockState.mode);
+
+            if (clockState.mode === 'timer' && currentMs <= 0) {
+                finishTimer();
+            }
+        }
+
+        function finishTimer() {
+            stopClockInterval();
+
+            clockState.isRunning = false;
+            clockState.baseMs = 0;
+
+            setClockMessage('시간이 끝났어요. 다음 세트를 시작해 보세요.');
+            showToast('타이머가 끝났어요.');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+            updateClockUi();
+        }
+
+        function bindClockEvents() {
+            document.getElementById('timerOpenButton').addEventListener('click', openTimerModal);
+
+            document.getElementById('modeStopwatchButton').addEventListener('click', () => setClockMode('stopwatch'));
+            document.getElementById('modeTimerButton').addEventListener('click', () => setClockMode('timer'));
+
+            document.getElementById('clockToggleButton').addEventListener('click', () => {
+                if (clockState.isRunning) {
+                    pauseClock();
+                } else {
+                    startClock();
+                }
+            });
+
+            document.getElementById('clockResetButton').addEventListener('click', resetClock);
+
+            // 프리셋 버튼은 이벤트 위임으로 처리
+            document.getElementById('presetRow').addEventListener('click', (event) => {
+                const presetButton = event.target.closest('button[data-seconds]');
+                if (!presetButton || clockState.isRunning) return;
+
+                clockState.presetMs = Number(presetButton.dataset.seconds) * 1000;
+                clockState.baseMs = clockState.presetMs;
+
+                setClockMessage('');
+                updateClockUi();
+            });
+        }
+
+        /* ==========================================
+           5. Kakao Map GPS Integration
+           ========================================== */
+        function setLocationBadge(text) {
+            const badgeElement = document.getElementById('locationBadgeText');
+            if (badgeElement) badgeElement.textContent = text;
+        }
+
+        function isKakaoMapReady() {
+            return typeof kakao !== 'undefined' && Boolean(kakao.maps);
+        }
+
+        // 현재 위치 주변의 예시 경로 (실제 트래킹 좌표가 생기면 이 함수를 교체하면 된다)
+        function buildCoursePath(lat, lng) {
+            return [
+                new kakao.maps.LatLng(lat - 0.001, lng - 0.001),
+                new kakao.maps.LatLng(lat - 0.0005, lng + 0.0005),
+                new kakao.maps.LatLng(lat, lng)
+            ];
+        }
+
+        // 지도는 기본 좌표로 먼저 만들고, GPS 위치를 받으면 그 위치로 옮긴다.
+        // (GPS 허용을 기다리는 동안에도, 거부해도 지도가 비어 있지 않도록)
+        function initKakaoMap() {
+            const container = document.getElementById('kakaoMap');
+            if (!container) return;
+
+            // Check if Kakao Maps SDK loaded correctly
+            if (isKakaoMapReady()) {
+                try {
+                    const startPosition = new kakao.maps.LatLng(currentLat, currentLng);
+                    kakaoMapInstance = new kakao.maps.Map(container, { center: startPosition, level: 3 });
+
+                    // Running Path Polyline
+                    kakaoPolyline = new kakao.maps.Polyline({
+                        path: buildCoursePath(currentLat, currentLng),
+                        strokeWeight: 6,
+                        strokeColor: '#3b82f6',
+                        strokeOpacity: 0.9,
+                        strokeStyle: 'solid'
+                    });
+                    kakaoPolyline.setMap(kakaoMapInstance);
+
+                    // Marker
+                    kakaoMarker = new kakao.maps.Marker({ position: startPosition });
+                    kakaoMarker.setMap(kakaoMapInstance);
+
+                    requestCurrentPosition(false);
+                    return;
+                } catch (error) {
+                    console.warn('Kakao Map init fallback triggered:', error);
+                }
+            }
+
+            // Fallback Canvas Rendering if Kakao API is blocked due to domain restriction
+            initFallbackCanvasMap();
+        }
+
+        // 브라우저 GPS 위치 조회 (isManual: 사용자가 버튼을 눌렀을 때만 안내 토스트를 띄운다)
+        function requestCurrentPosition(isManual) {
+            if (!navigator.geolocation) {
+                updateAddressFromCoords(currentLat, currentLng);
+                if (isManual) showToast('GPS 위치 정보 조회가 불가능합니다.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    moveMapToPosition(position.coords.latitude, position.coords.longitude);
+                    if (isManual) showToast('현재 GPS 위치와 주소를 갱신했습니다.');
+                },
+                () => {
+                    // GPS 차단 또는 실패 시 기본 좌표 기준으로 주소를 표시한다
+                    updateAddressFromCoords(currentLat, currentLng);
+                    if (isManual) showToast('GPS 위치를 가져오지 못했어요. 위치 권한을 확인해 주세요.');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
+        }
+
+        function moveMapToPosition(lat, lng) {
+            currentLat = lat;
+            currentLng = lng;
+
+            if (kakaoMapInstance === null) return;
+
+            const position = new kakao.maps.LatLng(lat, lng);
+            kakaoMapInstance.setCenter(position);
+            if (kakaoMarker) kakaoMarker.setPosition(position);
+            if (kakaoPolyline) kakaoPolyline.setPath(buildCoursePath(lat, lng));
+
+            updateAddressFromCoords(lat, lng);
+        }
+
+        // 좌표 -> 행정동 주소 변환 (Geocoder) 후 위치 뱃지에 표시
+        function updateAddressFromCoords(lat, lng) {
+            if (!isKakaoMapReady() || !kakao.maps.services) {
+                setLocationBadge('GPS 기본 코스');
+                return;
+            }
+
+            const geocoder = new kakao.maps.services.Geocoder();
+            geocoder.coord2RegionCode(lng, lat, (result, status) => {
+                if (status !== kakao.maps.services.Status.OK || result.length === 0) {
+                    setLocationBadge('현재 위치 코스');
+                    return;
+                }
+
+                // 행정동(H) 우선, 없으면 첫 번째 결과
+                const regionInfo = result.find(region => region.region_type === 'H') || result[0];
+                setLocationBadge(`${regionInfo.address_name} 코스`);
+            });
+        }
+
+        // 숨겨져 있던 탭에서 지도가 처음 보일 때 크기를 다시 계산한다
+        function relayoutKakaoMap() {
+            if (kakaoMapInstance) {
+                kakaoMapInstance.relayout();
+                kakaoMapInstance.setCenter(new kakao.maps.LatLng(currentLat, currentLng));
+            } else {
+                initFallbackCanvasMap();
+            }
+        }
+
+        function recenterKakaoMap() {
+            if (kakaoMapInstance === null) initFallbackCanvasMap();
+            requestCurrentPosition(true);
+        }
+
+        function initFallbackCanvasMap() {
+            const canvas = document.getElementById('fallbackMapCanvas');
+            if (!canvas) return;
+            canvas.classList.remove('hidden');
+
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth || 340;
+            canvas.height = canvas.parentElement.clientHeight || 280;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid lines
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Route Line
+            ctx.beginPath();
+            ctx.moveTo(30, 180);
+            ctx.lineTo(120, 120);
+            ctx.lineTo(200, 160);
+            ctx.lineTo(280, 80);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+
+            // End dot
+            ctx.beginPath();
+            ctx.arc(280, 80, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#ef4444';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            setLocationBadge('GPS 기본 코스');
+        }
+
+        function toggleRunningSimulation() {
+            const btnText = document.getElementById('toggleRunText');
+            const btnIcon = document.getElementById('toggleRunIcon');
+
+            if (!isRunning) {
+                isRunning = true;
+                btnText.textContent = "일시 정지";
+                btnIcon.className = "fa-solid fa-pause";
+
+                runTimerInterval = setInterval(() => {
+                    secondsElapsed++;
+                    distanceKm += 0.003;
+                    caloriesBurned += 0.25;
+
+                    updateRunDisplay();
+                }, 1000);
+
+                showToast('GPS 트래킹을 시작합니다.');
+            } else {
+                isRunning = false;
+                btnText.textContent = "트래킹 재개";
+                btnIcon.className = "fa-solid fa-play";
+                clearInterval(runTimerInterval);
+                showToast('GPS 트래킹이 일시정지 되었습니다.');
+            }
+        }
+
+        function updateRunDisplay() {
+            document.getElementById('runDistance').textContent = distanceKm.toFixed(1);
+            document.getElementById('runCalories').textContent = Math.round(caloriesBurned);
+
+            const hrs = String(Math.floor(secondsElapsed / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((secondsElapsed % 3600) / 60)).padStart(2, '0');
+            const secs = String(secondsElapsed % 60).padStart(2, '0');
+            document.getElementById('runTimer').textContent = `${hrs}:${mins}:${secs}`;
+        }
+
+        function resetRunningData() {
+            isRunning = false;
+            clearInterval(runTimerInterval);
+            secondsElapsed = 0;
+            distanceKm = 0.0;
+            caloriesBurned = 0;
+
+            document.getElementById('toggleRunText').textContent = "트래킹 시작";
+            document.getElementById('toggleRunIcon').className = "fa-solid fa-play";
+
+            updateRunDisplay();
+            showToast('러닝 데이터가 초기화되었습니다.');
+        }
+
+        /* ==========================================
+           6. BMI & Body Data Calculator
+           ========================================== */
+        function setGender(gender) {
+            selectedGender = gender;
+            const maleBtn = document.getElementById('genderMale');
+            const femaleBtn = document.getElementById('genderFemale');
+
+            if (gender === 'male') {
+                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300";
+                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
+            } else {
+                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300";
+                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
+            }
+        }
+
+        function calculateBodyMetrics() {
+            const age = parseFloat(document.getElementById('inputAge').value) || 28;
+            const weight = parseFloat(document.getElementById('inputWeight').value) || 72.5;
+            const height = parseFloat(document.getElementById('inputHeight').value) || 175;
+
+            const heightM = height / 100;
+            const bmi = weight / (heightM * heightM);
+
+            let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+            if (selectedGender === 'male') bmr += 5;
+            else bmr -= 161;
+
+            let badgeText = "정상";
+            let needleAngle = 25;
+
+            if (bmi < 18.5) {
+                badgeText = "저체중";
+                needleAngle = 70;
+            } else if (bmi >= 18.5 && bmi < 23) {
+                badgeText = "정상";
+                needleAngle = 25;
+            } else if (bmi >= 23 && bmi < 25) {
+                badgeText = "과체중";
+                needleAngle = -25;
+            } else {
+                badgeText = "비만";
+                needleAngle = -70;
+            }
+
+            document.getElementById('resBmiText').textContent = `${bmi.toFixed(1)} (${badgeText})`;
+            document.getElementById('resBmrText').textContent = `${Math.round(bmr).toLocaleString()} kcal`;
+
+            const needle = document.getElementById('bmiGaugeNeedle');
+            if (needle) {
+                needle.style.transform = `rotate(${needleAngle}deg)`;
+            }
+
+            showToast('신체 데이터 및 BMI 수치가 업데이트 되었습니다.');
+        }
+
+        /* ==========================================
+           7. Toast Notification Engine
+           ========================================== */
+        let toastTimeout = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const msgSpan = document.getElementById('toastMsg');
+
+            msgSpan.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2400);
+        }
+    </script>
+    <script>
+    const API_BASE_URL = 'http://localhost:3000/api';
+
+    // 1. 페이지 로드 시 백엔드에서 오늘 루틴 목록 조회
+    async function loadTodayRoutines() {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/today?userId=testuser`);
+        const data = await response.json();
+        if (data.success) {
+            console.log('DB에서 조회된 루틴 데이터:', data);
+        }
+        } catch (error) {
+        console.error('오늘 루틴 불러오기 실패:', error);
+        }
+    }
+
+    // 2. 운동 루틴 체크박스 클릭 시 DB 상태 업데이트
+    async function updateRoutineCheck(selectionId, isChecked) {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, isChecked })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log('DB 업데이트 성공!');
+        }
+        } catch (error) {
+        console.error('상태 변경 저장 실패:', error);
+        }
+    }
+
+    // 3. GPS 런닝 종료 시 기록 저장
+    async function saveGpsRecord(selectionId, distance, calories, routePath) {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/gps`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, distance, calories, routePath })
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('GPS 런닝 기록이 MySQL DB에 저장되었습니다!');
+        }
+        } catch (error) {
+        console.error('GPS 저장 실패:', error);
+        }
+    }
+
+    // 화면 로드 시 실행
+    window.addEventListener('DOMContentLoaded', loadTodayRoutines);
+</script>
+</body>
+</html>
