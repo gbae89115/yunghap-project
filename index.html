@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="RoutineNote">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <title>RoutineNote V2.0 - 스마트 루틴 & GPS 노트</title>
     
     <!-- Tailwind CSS -->
@@ -239,6 +246,87 @@
         @media (prefers-reduced-motion: reduce) {
             * { transition: none !important; animation: none !important; }
         }
+
+        /* ==========================================
+           v2.2 추가 스타일
+           ========================================== */
+
+        /* 런닝 지표(거리/시간/칼로리): 칸 폭에 맞춰 글자 크기가 줄어들고, 줄바꿈 없이 한 줄로 유지한다 */
+        .metric-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+        .metric-value {
+            font-size: clamp(15px, 4.9vw, 19px);
+            font-weight: 900;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+        .metric-unit {
+            font-size: 10px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        /* 오늘의 운동 선택 칩 */
+        .type-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            min-width: 0;
+            padding: 10px 4px;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            background: #ffffff;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .type-chip i { font-size: 18px; }
+        .type-chip small { font-size: 10px; font-weight: 500; color: #94a3b8; }
+        .type-chip[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+        .type-chip[aria-pressed="true"] small { color: #60a5fa; }
+        .dark .type-chip { border-color: #475569; background: #1e293b; color: #cbd5e1; }
+        .dark .type-chip[aria-pressed="true"] { border-color: #60a5fa; background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+
+        /* 설정 스위치 (다크 모드) */
+        .switch {
+            position: relative;
+            flex-shrink: 0;
+            width: 44px;
+            height: 24px;
+            border: 0;
+            border-radius: 999px;
+            background: #cbd5e1;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            transition: transform 0.2s ease;
+        }
+        .switch[aria-checked="true"] { background: #2563eb; }
+        .switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+        .stat-cell { min-width: 0; padding: 10px 12px; border-radius: 12px; background: #f8fafc; }
+        .dark .stat-cell { background: rgba(15, 23, 42, 0.6); }
+        .stat-value { font-size: 17px; font-weight: 900; line-height: 1.2; white-space: nowrap; color: #1e293b; }
+        .dark .stat-value { color: #f1f5f9; }
+        .stat-label { margin-top: 2px; font-size: 11px; font-weight: 500; color: #94a3b8; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
@@ -257,19 +345,17 @@
         </div>
 
         <!-- Main Header (와이어프레임 20번: 메뉴 / 로고 / 마이페이지) -->
-        <header class="bg-brand-600 dark:bg-slate-900 text-white px-3 py-3 shadow-md flex justify-between items-center z-20 border-b border-white/10">
+        <header id="mainHeader" class="bg-brand-600 dark:bg-slate-900 text-white px-3 py-3 shadow-md flex justify-between items-center z-20 border-b border-white/10">
             <div class="flex items-center gap-1.5">
                 <button type="button" onclick="switchTab('tab-menu')" aria-label="메뉴 열기" class="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center transition">
                     <i class="fa-solid fa-bars text-base" aria-hidden="true"></i>
                 </button>
                 <div class="flex items-center space-x-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-white text-brand-600 dark:bg-brand-500 dark:text-white flex items-center justify-center font-black text-xl shadow-md">
-                        R
-                    </div>
+                    <button type="button" id="homeLogoButton" onclick="goHome()" aria-label="메인 화면으로 이동" class="w-9 h-9 rounded-xl bg-white text-brand-600 dark:bg-brand-500 dark:text-white flex items-center justify-center font-black text-xl shadow-md hover:scale-105 active:scale-95 transition">R</button>
                     <div>
                         <div class="flex items-center gap-1.5">
                             <h1 class="text-lg font-black tracking-tight leading-none">RoutineNote</h1>
-                            <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.0</span>
+                            <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.2</span>
                         </div>
                         <p class="text-[10px] text-blue-100 dark:text-slate-400 font-medium mt-0.5">스마트 루틴 & GPS 지도 노트</p>
                     </div>
@@ -314,8 +400,30 @@
 
                     <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
                         <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
-                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i>340 kcal 소모</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">340</span> kcal 소모</span>
                     </div>
+                </div>
+
+                <!-- 오늘의 운동 선택 (와이어프레임 12~15번) -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-hand-pointer text-brand-500" aria-hidden="true"></i> 오늘의 운동 선택
+                        </h3>
+                        <span class="text-[10px] text-slate-400">여러 개 선택 가능</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="type-chip" data-routine-type="RUNNING" aria-pressed="false">
+                            <i class="fa-solid fa-person-running" aria-hidden="true"></i>런닝<small>GPS 지도</small>
+                        </button>
+                        <button type="button" class="type-chip" data-routine-type="WEIGHT" aria-pressed="false">
+                            <i class="fa-solid fa-dumbbell" aria-hidden="true"></i>웨이트<small>세트·중량</small>
+                        </button>
+                        <button type="button" class="type-chip" data-routine-type="REST" aria-pressed="false">
+                            <i class="fa-solid fa-bed" aria-hidden="true"></i>휴식<small>스트레칭</small>
+                        </button>
+                    </div>
+                    <button type="button" id="confirmSelectionButton" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">설정 완료 및 시작</button>
                 </div>
 
                 <!-- Today Workout Checklist Card -->
@@ -367,23 +475,17 @@
                 <!-- Running Metrics Display -->
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
                     <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
-                        <div class="text-center px-1">
+                        <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
-                            <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                                <span id="runDistance">5.2</span> <span class="text-xs font-medium text-slate-400">km</span>
-                            </div>
+                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">5.2</span><span class="metric-unit">km</span></div>
                         </div>
-                        <div class="text-center px-1">
+                        <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
-                            <div class="text-2xl font-black text-brand-600 dark:text-brand-400 mt-1" id="runTimer">
-                                00:28:40
-                            </div>
+                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:28:40</span></div>
                         </div>
-                        <div class="text-center px-1">
+                        <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
-                            <div class="text-2xl font-black text-red-500 mt-1">
-                                <span id="runCalories">415</span> <span class="text-xs font-medium text-slate-400">kcal</span>
-                            </div>
+                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">415</span><span class="metric-unit">kcal</span></div>
                         </div>
                     </div>
 
@@ -431,6 +533,9 @@
                             <i class="fa-solid fa-arrow-rotate-right"></i> 경로 초기화
                         </button>
                     </div>
+                    <button type="button" id="finishRunButton" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow-md flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> 런닝 종료 및 기록 저장
+                    </button>
                 </div>
 
             </section>
@@ -523,7 +628,7 @@
                         </div>
                     </div>
 
-                    <button onclick="calculateBodyMetrics()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                    <button type="button" onclick="calculateBodyMetrics(true)" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-calculator"></i> BMI & BMR 계산 업데이트
                     </button>
                 </div>
@@ -532,7 +637,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-4">
                     <div class="text-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
                         <h3 class="text-base font-extrabold text-slate-800 dark:text-slate-100">다이어트 기간 비교</h3>
-                        <p class="text-xs text-slate-400">(최근 6개월 체중 변화 및 BMI 분석)</p>
+                        <p id="dietPeriodText" class="text-xs text-slate-400">(최근 6개월 체중 변화 및 BMI 분석)</p>
                     </div>
 
                     <!-- Weight Change SVG Chart -->
@@ -541,40 +646,7 @@
                             <i class="fa-solid fa-chart-line text-brand-500"></i> 체중 변화 추이 (kg)
                         </h4>
                         <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60">
-                            <svg viewBox="0 0 300 110" class="w-full h-auto overflow-visible">
-                                <line x1="30" y1="20" x2="290" y2="20" stroke="#cbd5e1" stroke-dasharray="2" />
-                                <line x1="30" y1="50" x2="290" y2="50" stroke="#cbd5e1" stroke-dasharray="2" />
-                                <line x1="30" y1="80" x2="290" y2="80" stroke="#cbd5e1" stroke-dasharray="2" />
-
-                                <text x="22" y="24" font-size="8" fill="#94a3b8" text-anchor="end">80kg</text>
-                                <text x="22" y="54" font-size="8" fill="#94a3b8" text-anchor="end">75kg</text>
-                                <text x="22" y="84" font-size="8" fill="#94a3b8" text-anchor="end">70kg</text>
-
-                                <path d="M 40 30 L 85 52 L 135 48 L 185 48 L 235 78 L 280 62 L 280 95 L 40 95 Z" fill="url(#chartGradient)" opacity="0.2" />
-
-                                <defs>
-                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stop-color="#3b82f6" />
-                                        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
-                                    </linearGradient>
-                                </defs>
-
-                                <path d="M 40 30 L 85 52 L 135 48 L 185 48 L 235 78 L 280 62" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-
-                                <circle cx="40" cy="30" r="3.5" fill="#3b82f6" />
-                                <circle cx="85" cy="52" r="3.5" fill="#3b82f6" />
-                                <circle cx="135" cy="48" r="3.5" fill="#3b82f6" />
-                                <circle cx="185" cy="48" r="3.5" fill="#3b82f6" />
-                                <circle cx="235" cy="78" r="5" fill="#10b981" stroke="#ffffff" stroke-width="2" />
-                                <circle cx="280" cy="62" r="3.5" fill="#3b82f6" />
-
-                                <text x="40" y="105" font-size="8" fill="#64748b" text-anchor="middle">5월</text>
-                                <text x="85" y="105" font-size="8" fill="#64748b" text-anchor="middle">6월</text>
-                                <text x="135" y="105" font-size="8" fill="#64748b" text-anchor="middle">7월</text>
-                                <text x="185" y="105" font-size="8" fill="#64748b" text-anchor="middle">8월</text>
-                                <text x="235" y="105" font-size="8" fill="#3b82f6" font-weight="bold" text-anchor="middle">9월</text>
-                                <text x="280" y="105" font-size="8" fill="#64748b" text-anchor="middle">10월</text>
-                            </svg>
+                            <svg id="weightChartSvg" viewBox="0 0 300 110" class="w-full h-auto overflow-visible" role="img" aria-label="체중 변화 그래프"></svg>
                         </div>
                     </div>
 
@@ -605,19 +677,44 @@
 
                     <!-- Calculated Result Numbers -->
                     <div class="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 text-slate-700 dark:text-slate-200">
-                        <div class="flex justify-between items-center">
+                        <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">현재 계산된 BMI 수치:</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.67 (정상)</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.7 (정상)</span>
                         </div>
-                        <div class="flex justify-between items-center">
+                        <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">기초대사량 (BMR):</span>
                             <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">1,695 kcal</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="font-medium text-slate-500">다이어트 달성률:</span>
-                            <span class="font-bold text-brand-600 dark:text-brand-400">90% 달성</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">현재 달성도:</span>
+                            <span class="font-bold text-brand-600 dark:text-brand-400" id="dietAchieveText">-</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden" role="presentation">
+                            <div id="dietProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">체중 변화:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietChangeText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">현재 총 소모 칼로리:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBurnedText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">다이어트 전 체중:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeWeightText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">다이어트 전 BMI:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeBmiText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">목표 체중:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietTargetText">-</span>
                         </div>
                     </div>
+
+                    <button type="button" onclick="switchTab('tab-today')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">확인</button>
                 </div>
 
             </section>
@@ -626,34 +723,55 @@
             <section id="tab-menu" class="tab-screen hidden p-4 space-y-4">
                 
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-1">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">RoutineNote v2.0 메뉴</h3>
-                    
-                    <button onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">RoutineNote 메뉴</h3>
+
+                    <button type="button" onclick="switchTab('tab-mypage')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
                         <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
-                            <i class="fa-solid fa-calculator text-blue-500 w-4 text-center"></i> BMI 지수 & 신체 데이터
+                            <i class="fa-regular fa-user text-slate-500 w-4 text-center" aria-hidden="true"></i> 마이페이지
                         </span>
-                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
-                    </button>
-                    
-                    <button onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
-                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
-                            <i class="fa-solid fa-chart-pie text-emerald-500 w-4 text-center"></i> 다이어트 기간 비교 분석
-                        </span>
-                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
                     </button>
 
-                    <button onclick="switchTab('tab-running')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                    <button type="button" onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
                         <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
-                            <i class="fa-solid fa-map-location-dot text-indigo-500 w-4 text-center"></i> 런닝 지도 (Kakao GPS)
+                            <i class="fa-solid fa-calculator text-blue-500 w-4 text-center" aria-hidden="true"></i> BMI 지수 확인
                         </span>
-                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
                     </button>
 
-                    <button onclick="switchTab('tab-calendar')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                    <button type="button" onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
                         <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
-                            <i class="fa-solid fa-calendar-check text-purple-500 w-4 text-center"></i> 월간 캘린더 전체보기
+                            <i class="fa-solid fa-chart-pie text-emerald-500 w-4 text-center" aria-hidden="true"></i> 다이어트 기간 비교
                         </span>
-                        <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-calorie')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-fire-flame-curved text-orange-500 w-4 text-center" aria-hidden="true"></i> 칼로리 계산기
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-bmr')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-heart-pulse text-rose-500 w-4 text-center" aria-hidden="true"></i> 기초대사량 분석
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-running')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-map-location-dot text-indigo-500 w-4 text-center" aria-hidden="true"></i> 런닝 지도 (GPS)
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-calendar')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-calendar-check text-purple-500 w-4 text-center" aria-hidden="true"></i> 월간 캘린더 전체보기
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -661,7 +779,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-2 text-slate-500 dark:text-slate-400">
                     <div class="flex justify-between">
                         <span>앱 버전</span>
-                        <span class="font-bold text-slate-800 dark:text-slate-200">v2.0 (Kakao Map SDK)</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">v2.3 (로그인 · 마이페이지)</span>
                     </div>
                     <div class="flex justify-between">
                         <span>지도 엔진</span>
@@ -675,10 +793,148 @@
 
             </section>
 
+            <!-- TAB: 마이페이지 (USER / BODY_RECORD / DIET_GOAL / 운동 통계) -->
+            <section id="tab-mypage" class="tab-screen hidden p-4 space-y-4">
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-4">
+                    <div id="myAvatar" class="w-14 h-14 shrink-0 rounded-full bg-brand-600 text-white flex items-center justify-center text-2xl font-black" aria-hidden="true">?</div>
+                    <div class="min-w-0">
+                        <p class="text-base font-black text-slate-800 dark:text-slate-100 truncate" id="myUserId">-</p>
+                        <span id="myProviderBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">일반 계정</span>
+                        <p class="text-[11px] text-slate-400 mt-1">가입일 <span id="myJoinDate">-</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-weight-scale text-brand-500" aria-hidden="true"></i> 신체 정보</h3>
+                        <button type="button" onclick="switchTab('tab-body')" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline">수정</button>
+                    </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">성별 / 나이</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBodyBasis">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">키</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myHeight">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">몸무게</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myWeight">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">BMI</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmi">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">기초대사량</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmr">-</span>
+                        </div>
+                </div>
+
+                <form id="goalForm" class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3" novalidate>
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-bullseye text-emerald-500" aria-hidden="true"></i> 다이어트 목표</h3>
+                    <div>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200" id="goalProgressText">-</p>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-1.5 overflow-hidden" role="presentation">
+                            <div id="goalProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label for="goalTargetWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표 체중(kg)</label><input type="number" id="goalTargetWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="goalStartDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">시작일</label><input type="date" id="goalStartDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
+                        <div><label for="goalEndDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">종료일</label><input type="date" id="goalEndDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        <input type="checkbox" id="goalIsActive" class="w-4 h-4 accent-blue-600"> 현재 진행 중인 목표
+                    </label>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">목표 저장</button>
+                </form>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-chart-column text-purple-500" aria-hidden="true"></i> 나의 운동 통계</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="stat-cell"><div class="stat-value" id="statTotalDays">-</div><div class="stat-label">기록된 날</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCompletedDays">-</div><div class="stat-label">루틴 완수한 날</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCompletionRate">-</div><div class="stat-label">완수율</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCurrentStreak">-</div><div class="stat-label">현재 연속 달성</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statLongestStreak">-</div><div class="stat-label">최장 연속 달성</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statRunCount">-</div><div class="stat-label">런닝 횟수</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statRunDistance">-</div><div class="stat-label">누적 런닝 거리</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statBurnedKcal">-</div><div class="stat-label">예상 소모 칼로리</div></div>
+                    </div>
+                    <p class="text-[10px] text-slate-400">소모 칼로리는 완료한 운동 항목당 추정치를 더한 값이라 실제와 다를 수 있어요.</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-gear text-slate-500" aria-hidden="true"></i> 설정</h3>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">다크 모드</span>
+                        <button type="button" id="darkModeSwitch" class="switch" role="switch" aria-checked="false" aria-label="다크 모드"></button>
+                    </div>
+                    <button type="button" id="logoutButton" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> 로그아웃</button>
+                    <button type="button" id="resetDataButton" class="w-full border border-red-200 dark:border-red-900/60 text-red-500 font-bold py-2.5 rounded-xl text-xs hover:bg-red-50 dark:hover:bg-red-900/20 transition flex items-center justify-center gap-2"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> <span id="resetDataLabel">내 기록 모두 삭제</span></button>
+                </div>
+
+            </section>
+
+            <!-- TAB: 칼로리 계산기 (메뉴 29번) -->
+            <section id="tab-calorie" class="tab-screen hidden p-4 space-y-4">
+                <button type="button" onclick="switchTab('tab-menu')" class="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1.5 hover:underline">
+                    <i class="fa-solid fa-chevron-left text-[10px]" aria-hidden="true"></i> 메뉴로
+                </button>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-fire-flame-curved text-orange-500" aria-hidden="true"></i> 칼로리 계산기</h3>
+                        <p class="text-xs text-slate-400">운동 종류, 시간, 체중으로 소모 칼로리를 계산해요.</p>
+                    </div>
+                    <div><label for="calcActivity" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">운동 종류</label><select id="calcActivity" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></select></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label for="calcMinutes" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">운동 시간 (분)</label><input type="number" id="calcMinutes" value="30" min="1" max="600" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="calcWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">체중 (kg)</label><input type="number" id="calcWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                    </div>
+                    <div class="rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/40 p-4 text-center" aria-live="polite">
+                        <p class="text-[11px] font-bold text-orange-700 dark:text-orange-300">예상 소모 칼로리</p>
+                        <p class="text-3xl font-black text-orange-600 dark:text-orange-300 my-1" id="calcResultKcal">-</p>
+                        <p class="text-xs text-orange-700 dark:text-orange-300" id="calcResultFood"></p>
+                    </div>
+                    <p class="text-[10px] text-slate-400">소모 칼로리 = MET x 체중(kg) x 시간(h). 개인차가 있는 참고용 수치예요.</p>
+                </div>
+            </section>
+
+            <!-- TAB: 기초대사량 분석 (메뉴 30번) -->
+            <section id="tab-bmr" class="tab-screen hidden p-4 space-y-4">
+                <button type="button" onclick="switchTab('tab-menu')" class="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1.5 hover:underline">
+                    <i class="fa-solid fa-chevron-left text-[10px]" aria-hidden="true"></i> 메뉴로
+                </button>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-rose-500" aria-hidden="true"></i> 기초대사량 분석</h3>
+                        <p class="text-xs text-slate-400" id="bmrBasisText">-</p>
+                    </div>
+                    <div><label for="bmrActivity" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">평소 활동량</label><select id="bmrActivity" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></select></div>
+                    <div>
+                        <span class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표</span>
+                        <div class="grid grid-cols-3 gap-1.5" id="bmrGoalButtons" role="group" aria-label="체중 목표">
+                            <button type="button" class="preset-btn" data-goal="lose" aria-pressed="true">감량</button>
+                            <button type="button" class="preset-btn" data-goal="keep" aria-pressed="false">유지</button>
+                            <button type="button" class="preset-btn" data-goal="gain" aria-pressed="false">증량</button>
+                        </div>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 p-3.5 space-y-2 text-xs" aria-live="polite">
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">기초대사량 (BMR)</span><strong id="bmrValue" class="text-slate-800 dark:text-slate-100">-</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">하루 총 소비 (활동 포함)</span><strong id="tdeeValue" class="text-slate-800 dark:text-slate-100">-</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">권장 섭취 칼로리</span><strong id="intakeValue" class="text-brand-600 dark:text-brand-400">-</strong></div>
+                        <p class="text-[11px] text-slate-400" id="intakeNote"></p>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Mifflin-St Jeor 공식 기준이에요. 감량은 하루 -500kcal, 증량은 +300kcal로 계산해요.</p>
+                </div>
+            </section>
+
         </main>
 
         <!-- Bottom Tab Navigation Bar -->
-        <nav class="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-2 flex justify-around items-center z-30 shadow-lg">
+        <nav id="mainNav" class="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-2 flex justify-around items-center z-30 shadow-lg">
             <button onclick="switchTab('tab-today')" id="nav-tab-today" class="nav-btn flex-1 flex flex-col items-center py-1 text-brand-600 dark:text-brand-400 font-bold transition">
                 <i class="fa-solid fa-house text-base mb-0.5"></i>
                 <span class="text-[10px]">오늘 루틴</span>
@@ -715,6 +971,15 @@
                     </button>
                 </div>
 
+                <!-- 모달 탭: 루틴 체크 / 운동일지 -->
+                <div class="px-3.5 pt-3">
+                    <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl" role="group" aria-label="모달 종류">
+                        <button type="button" class="seg-btn" id="detailTabRoutine" aria-pressed="true">루틴 체크</button>
+                        <button type="button" class="seg-btn" id="detailTabLog" aria-pressed="false">운동일지</button>
+                    </div>
+                </div>
+
+                <div id="routinePanel">
                 <!-- Modal Body: Routine Checklist -->
                 <div class="p-3.5 space-y-2.5 max-h-[280px] overflow-y-auto no-scrollbar" id="modalRoutineList">
                     <!-- Dynamic items rendered via JS -->
@@ -735,6 +1000,31 @@
                     <button onclick="closeDetailModal()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
                         확인 및 저장
                     </button>
+                </div>
+                </div>
+
+                <!-- 운동일지 패널 (와이어프레임 24~26번): 운동명 / 세트 / 중량 / 횟수 -->
+                <div id="logPanel" class="hidden">
+                    <div class="p-3.5 space-y-2">
+                        <div class="grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 px-1 py-1.5 text-[10px] font-bold text-slate-500 text-center border border-brand-500/50 rounded-lg">
+                            <span class="text-left">운동명</span><span>세트</span><span>중량</span><span>횟수</span><span></span>
+                        </div>
+                        <div id="exerciseLogList" class="space-y-1 max-h-[160px] overflow-y-auto no-scrollbar"></div>
+                        <p id="exerciseLogSummary" class="text-[11px] font-bold text-brand-600 dark:text-brand-400 text-right min-h-[14px]"></p>
+                    </div>
+                    <form id="exerciseLogForm" class="px-3.5 pb-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 space-y-2" novalidate>
+                        <label for="logExerciseName" class="sr-only">운동명</label>
+                        <input type="text" id="logExerciseName" maxlength="30" placeholder="운동명 (예: 스쿼트)" class="w-full bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="number" id="logSets" min="1" max="20" inputmode="numeric" placeholder="세트" aria-label="세트 수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <input type="number" id="logWeight" min="0" max="500" step="0.5" inputmode="decimal" placeholder="중량(kg)" aria-label="중량 kg" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <input type="number" id="logReps" min="1" max="200" inputmode="numeric" placeholder="횟수" aria-label="횟수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <button type="submit" class="w-full text-brand-600 dark:text-brand-400 border border-brand-500/60 hover:bg-brand-50 dark:hover:bg-slate-700 font-bold py-2 rounded-xl text-xs transition"><i class="fa-solid fa-plus mr-1" aria-hidden="true"></i>추가운동</button>
+                    </form>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-700/60">
+                        <button type="button" id="saveExerciseLogButton" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">운동일지 저장</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -778,6 +1068,63 @@
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- 성공 화면 (와이어프레임 19번) -->
+        <div id="successModal" inert role="dialog" aria-modal="true" aria-labelledby="successTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden text-center p-6 space-y-3">
+                <div class="w-20 h-20 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center text-4xl" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+                <h3 id="successTitle" class="text-3xl font-black text-emerald-600 dark:text-emerald-400">성공!</h3>
+                <p class="text-xs font-bold text-emerald-700 dark:text-emerald-300">오늘의 루틴 달성 완료!</p>
+                <p class="text-xs font-bold text-emerald-700 dark:text-emerald-300" id="successDateText"></p>
+                <p class="text-sm font-black text-amber-600 dark:text-amber-300" id="successStreakText"></p>
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button type="button" id="successCloseButton" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition">닫기</button>
+                    <button type="button" id="successCalendarButton" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">캘린더 보기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 로그인 / 회원가입 화면 (와이어프레임 1~5번) -->
+        <div id="loginScreen" inert role="dialog" aria-modal="true" aria-labelledby="loginTitle" class="hidden absolute inset-0 z-[60] bg-gradient-to-b from-brand-600 to-blue-400 dark:from-slate-950 dark:to-slate-800 overflow-y-auto no-scrollbar">
+            <div class="min-h-full flex flex-col px-7 py-10 text-white">
+                <div class="text-center mt-6">
+                    <div class="w-16 h-16 mx-auto rounded-2xl bg-white text-brand-600 flex items-center justify-center text-3xl font-black shadow-lg" aria-hidden="true">R</div>
+                    <h2 id="loginTitle" class="mt-4 text-3xl font-black tracking-tight">RoutineNote</h2>
+                    <p id="authSubtitle" class="mt-1 text-xs text-blue-100">운동 루틴을 기록하고 이어가요</p>
+                </div>
+
+                <form id="loginForm" class="mt-10 space-y-3" novalidate>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="loginUserId" class="sr-only">User ID</label>
+                        <input type="text" id="loginUserId" autocomplete="username" maxlength="20" placeholder="User ID" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="loginPassword" class="sr-only">Password</label>
+                        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+                    <div class="relative hidden" id="joinConfirmField">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="joinPasswordConfirm" class="sr-only">Password 확인</label>
+                        <input type="password" id="joinPasswordConfirm" autocomplete="new-password" placeholder="Password 확인" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+
+                    <p id="loginMessage" role="alert" class="min-h-[16px] text-xs font-bold text-amber-200"></p>
+
+                    <button type="submit" id="loginSubmitButton" class="w-full bg-white text-brand-600 font-black py-3 rounded-xl text-sm shadow-lg hover:bg-blue-50 transition disabled:opacity-60">Login</button>
+                    <div class="text-right">
+                        <button type="button" id="authModeToggle" class="text-xs font-bold text-blue-100 hover:text-white underline underline-offset-2">Join</button>
+                    </div>
+                </form>
+
+                <div class="mt-auto pt-10 text-center">
+                    <p class="text-[11px] text-blue-100 mb-3">---------- Or Sign in with ----------</p>
+                    <button type="button" id="kakaoLoginButton" class="w-full bg-[#FEE500] text-[#191919] font-bold py-3 rounded-xl text-sm shadow transition hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2"><i class="fa-solid fa-comment" aria-hidden="true"></i> 카카오로 로그인</button>
+                    <p class="mt-4 text-[10px] text-blue-100/80 leading-relaxed">서버 연동 전 임시 로그인이에요. 비밀번호는 확인하지 않고,<br>이 브라우저에만 저장돼요. testuser 로 바로 로그인할 수 있어요.</p>
+                </div>
             </div>
         </div>
 
@@ -832,6 +1179,67 @@
         let currentLat = 37.4852;
         let currentLng = 126.7816;
 
+        // ===== v2.3 추가: 로그인 / 마이페이지 / 운동일지 / 다이어트 목표 =====
+        const storagePrefix = 'routineNote:';
+        const demoUserId = 'testuser';
+        const userDataKeys = ['workout', 'bodyProfile', 'bodyRecords', 'dietGoal', 'exerciseLogs', 'gpsLogs'];
+
+        // 메뉴 하위 화면은 하단 탭에서 '메뉴'가 선택된 것으로 표시한다
+        const subPageParentNav = { 'tab-calorie': 'tab-menu', 'tab-bmr': 'tab-menu' };
+
+        // TODAY_ROUTINE_SELECTION.routine_type 과 같은 값 (RUNNING / WEIGHT / REST), 직접 입력은 CUSTOM
+        const defaultRoutineNames = {
+            RUNNING: '🏃‍♂️ 런닝 (GPS 지도)',
+            WEIGHT: '🏋️ 운동 (웨이트)',
+            REST: '🧘 휴식 및 스트레칭'
+        };
+
+        // 완료한 항목 1개당 예상 소모 칼로리 (정확한 측정값이 아니라 화면 표시용 추정치)
+        const estimatedKcalByType = { RUNNING: 400, WEIGHT: 250, REST: 40, CUSTOM: 150 };
+
+        // 칼로리 계산기: 소모 칼로리 = MET x 체중(kg) x 시간(h)
+        const activityMets = [
+            { key: 'walk', label: '걷기', met: 3.5 },
+            { key: 'jog', label: '조깅', met: 7.0 },
+            { key: 'run', label: '달리기', met: 9.8 },
+            { key: 'bike', label: '자전거', met: 7.5 },
+            { key: 'swim', label: '수영', met: 8.0 },
+            { key: 'weight', label: '웨이트', met: 5.0 },
+            { key: 'yoga', label: '요가', met: 2.5 },
+            { key: 'rope', label: '줄넘기', met: 11.0 },
+            { key: 'hike', label: '등산', met: 6.5 }
+        ];
+
+        // 기초대사량 분석: 활동대사량 = 기초대사량 x 활동 계수
+        const activityLevels = [
+            { key: 'sedentary', label: '거의 운동 안 함', factor: 1.2 },
+            { key: 'light', label: '주 1~3회 가벼운 운동', factor: 1.375 },
+            { key: 'moderate', label: '주 3~5회 운동', factor: 1.55 },
+            { key: 'active', label: '주 6~7회 운동', factor: 1.725 },
+            { key: 'veryActive', label: '매일 강한 운동', factor: 1.9 }
+        ];
+
+        const goalAdjustments = {
+            lose: { label: '감량', kcal: -500 },
+            keep: { label: '유지', kcal: 0 },
+            gain: { label: '증량', kcal: 300 }
+        };
+
+        let currentUser = null;
+        let authMode = 'login';
+        let bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
+        let bodyRecords = [];
+        let dietGoal = null;
+        let exerciseLogs = {};
+        let gpsLogs = [];
+        let nextExerciseLogId = 1;
+        let isWorkoutCustom = false;
+        let activeDetailPanel = 'routine';
+        let selectedGoalKey = 'lose';
+        let isResetArmed = false;
+        let resetArmTimerId = null;
+        let hasShownStorageWarning = false;
+
         // 타이머 / 스톱워치 상태 (baseMs: 멈춰 있을 때의 값. 스톱워치는 누적 시간, 타이머는 남은 시간)
         const clockState = {
             mode: 'stopwatch',
@@ -854,74 +1262,12 @@
             }, 10000);
         });
 
-        async function initApp() {
-            document.getElementById('todayBannerDate').textContent = formatKoreanDate(getTodayKey());
-
-            initCalendar();
-            bindHeaderButtons();
-            bindModalShortcuts();
-            bindClockEvents();
-            setClockMode('stopwatch');
-
-            renderTodayChecklist();   // 로딩 안내를 먼저 보여준다
-            calculateBodyMetrics();
-            initKakaoMap();
-
-            await loadWorkoutData();
-        }
 
         /* ==========================================
            2. SPA Navigation & Dark Mode
            ========================================== */
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-screen').forEach(tab => {
-                tab.classList.add('hidden');
-            });
 
-            const targetTab = document.getElementById(tabId);
-            if (targetTab) targetTab.classList.remove('hidden');
 
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('text-brand-600', 'dark:text-brand-400', 'font-bold');
-                btn.classList.add('text-slate-400', 'font-medium');
-            });
-
-            const activeNav = document.getElementById('nav-' + tabId);
-            if (activeNav) {
-                activeNav.classList.remove('text-slate-400', 'font-medium');
-                activeNav.classList.add('text-brand-600', 'dark:text-brand-400', 'font-bold');
-            }
-
-            document.getElementById('mainScrollBody').scrollTop = 0;
-
-            if (tabId === 'tab-running') {
-                setTimeout(relayoutKakaoMap, 100);
-            }
-
-            // 숨겨져 있던 탭에서 달력이 처음 보일 때 크기를 다시 계산한다
-            if (tabId === 'tab-calendar' && calendarInstance !== null) {
-                setTimeout(() => calendarInstance.updateSize(), 0);
-            }
-        }
-
-        function toggleDarkMode() {
-            const html = document.documentElement;
-            if (html.classList.contains('dark')) {
-                html.classList.remove('dark');
-                html.classList.add('light');
-                showToast('라이트 모드로 전환되었습니다.');
-            } else {
-                html.classList.remove('light');
-                html.classList.add('dark');
-                showToast('다크 모드로 전환되었습니다.');
-            }
-        }
-
-        function bindHeaderButtons() {
-            document.getElementById('profileButton').addEventListener('click', () => {
-                showToast('마이페이지는 아직 준비 중이에요.');
-            });
-        }
 
         /* ==========================================
            3. 날짜 도우미 & DOM 도우미
@@ -978,56 +1324,6 @@
            ========================================== */
 
         // Mock 데이터: 오늘 기준으로 과거 기록을 만든다 (null = 기록 없음)
-        function buildMockWorkoutState() {
-            const statusByDaysAgo = [
-                'done', 'done', 'done', 'done', 'done', 'done',                       // 1~6일 전: 6일 연속 완수
-                'partial',                                                            // 7일 전: 일부 완료 (연속 끊김)
-                'done', 'done', 'done',                                               // 8~10일 전
-                null,                                                                 // 11일 전: 기록 없음
-                'done', 'done',                                                       // 12~13일 전
-                'missed',                                                             // 14일 전: 전부 미완료
-                'done', 'done', 'done', 'done', 'done', 'done', 'done', 'done',       // 15~22일 전
-                null, 'done', 'done', 'partial', 'done', 'done', 'done'               // 23~29일 전
-            ];
-
-            const runningName = '🏃‍♂️ 런닝 (GPS 지도)';
-            const weightName = '🏋️ 운동 (웨이트)';
-            const stretchName = '🧘 휴식 및 스트레칭';
-
-            const today = new Date();
-            const mockState = {};
-            let routineId = 1;
-
-            const createItem = (name, completed) => ({ id: routineId++, name: name, completed: completed });
-
-            statusByDaysAgo.forEach((status, index) => {
-                if (status === null) return;
-
-                const dateKey = formatDateKey(addDays(today, -(index + 1)));
-                const secondName = index % 2 === 0 ? weightName : stretchName;
-
-                if (status === 'done') {
-                    mockState[dateKey] = [createItem(runningName, true), createItem(secondName, true)];
-                } else if (status === 'partial') {
-                    mockState[dateKey] = [createItem(runningName, true), createItem(secondName, false)];
-                } else {
-                    mockState[dateKey] = [createItem(weightName, false)];
-                }
-            });
-
-            // 오늘: 초안과 같은 3개 항목 (2개 완료)
-            mockState[getTodayKey()] = [
-                createItem(runningName, true),
-                createItem(weightName, true),
-                createItem(stretchName, false)
-            ];
-
-            // 모레: 예정된 운동
-            mockState[formatDateKey(addDays(today, 2))] = [createItem('🏋️ 운동 (하체 데이)', false)];
-
-            nextRoutineId = routineId;
-            return mockState;
-        }
 
         // 서버 응답을 흉내 내는 Promise (실제 연동 시 이 함수를 fetch 로 교체)
         function requestWorkoutData(userId) {
@@ -1042,16 +1338,6 @@
             });
         }
 
-        async function getWorkoutState(userId) {
-            // 백엔드가 준비되면 아래 주석을 풀고 Mock 호출을 지우면 된다.
-            // const response = await fetch(`/api/users/${userId}/workout-logs`);
-            // if (!response.ok) {
-            //     throw new Error(`운동 기록 요청 실패 (HTTP ${response.status})`);
-            // }
-            // return await response.json();
-
-            return await requestWorkoutData(userId);
-        }
 
         async function loadWorkoutData() {
             setCalendarLoading(true);
@@ -1157,27 +1443,10 @@
                 : '일 (오늘 운동으로 다시 시작해 보세요)';
         }
 
-        function refreshAllViews() {
-            workoutLogs = buildWorkoutLogs();
-            renderTodayChecklist();
-            renderCalendarEvents();
-            renderStreak();
-        }
 
         /* ==========================================
            6. 오늘의 체크리스트 (초안 기능 유지, DOM API 로 재작성)
            ========================================== */
-        function updateTodayProgress(completedCount, totalCount) {
-            const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-            document.getElementById('todayPercentText').textContent = percent + '%';
-            document.getElementById('todayProgressBar').style.width = percent + '%';
-            setIconText(
-                document.getElementById('todayTaskSummary'),
-                'fa-solid fa-circle-check text-emerald-400 mr-1',
-                `${totalCount}개 중 ${completedCount}개 완료`
-            );
-        }
 
         function createCheckBox(isCompleted, extraClass) {
             const boxElement = document.createElement('span');
@@ -1328,42 +1597,7 @@
             }
         }
 
-        function bindModalShortcuts() {
-            const detailModal = document.getElementById('detailModal');
-            const timerModal = document.getElementById('timerModal');
 
-            // 어두운 배경을 누르면 닫기
-            detailModal.addEventListener('click', (event) => {
-                if (event.target === detailModal) closeDetailModal();
-            });
-            timerModal.addEventListener('click', (event) => {
-                if (event.target === timerModal) closeTimerModal();
-            });
-
-            document.addEventListener('keydown', (event) => {
-                if (event.key !== 'Escape') return;
-
-                if (isModalOpen(detailModal)) {
-                    closeDetailModal();
-                } else if (isModalOpen(timerModal)) {
-                    closeTimerModal();
-                }
-            });
-        }
-
-        function openDetailModal(dateStr) {
-            currentActiveDate = dateStr;
-
-            const status = getDayStatus(workoutState[dateStr]);
-            const titleText = status === 'none'
-                ? `${formatKoreanDate(dateStr)} 운동 목록`
-                : `${formatKoreanDate(dateStr)} 운동 목록 · ${statusLabels[status]}`;
-
-            setIconText(document.getElementById('modalDateTitle'), 'fa-solid fa-calendar-day', titleText);
-            renderModalRoutineList();
-
-            showModalElement(document.getElementById('detailModal'));
-        }
 
         function closeDetailModal() {
             hideModalElement(document.getElementById('detailModal'));
@@ -1440,49 +1674,8 @@
             });
         }
 
-        function toggleRoutineStatus(dateStr, itemId) {
-            if (!workoutState[dateStr]) return;
 
-            const item = workoutState[dateStr].find(routine => routine.id === itemId);
-            if (item) {
-                item.completed = !item.completed;
-                renderModalRoutineList();
-                refreshAllViews();
-                showToast(item.completed ? `"${item.name}" 완료 처리!` : `"${item.name}" 미완료 변경.`);
-            }
-        }
 
-        function deleteRoutineItem(dateStr, itemId) {
-            if (!workoutState[dateStr]) return;
-
-            workoutState[dateStr] = workoutState[dateStr].filter(routine => routine.id !== itemId);
-            renderModalRoutineList();
-            refreshAllViews();
-            showToast('운동 항목이 삭제되었습니다.');
-        }
-
-        function addNewRoutineItem(event) {
-            event.preventDefault();
-
-            const input = document.getElementById('newRoutineInput');
-            const inputValue = input.value.trim();
-            if (!inputValue) return;
-
-            if (!workoutState[currentActiveDate]) {
-                workoutState[currentActiveDate] = [];
-            }
-
-            workoutState[currentActiveDate].push({
-                id: nextRoutineId++,
-                name: inputValue,
-                completed: false
-            });
-
-            input.value = '';
-            renderModalRoutineList();
-            refreshAllViews();
-            showToast('새 운동 항목이 추가되었습니다!');
-        }
 
         /* ==========================================
            9. 타이머 / 스톱워치 모달 (와이어프레임 23번)
@@ -1646,6 +1839,1490 @@
 
                 setClockMessage('');
                 updateClockUi();
+            });
+        }
+
+        /* ==========================================
+           앱 시작 (로그인 세션이 있으면 바로 시작, 없으면 로그인 화면)
+           ========================================== */
+        async function initApp() {
+            bindAuthEvents();
+            bindHeaderButtons();
+            bindModalShortcuts();
+            bindClockEvents();
+            bindFeatureEvents();
+            initCalculatorOptions();
+            setClockMode('stopwatch');
+
+            applyTheme(readStorage('theme', 'light'));
+            document.getElementById('todayBannerDate').textContent = formatKoreanDate(getTodayKey());
+
+            initCalendar();
+            initKakaoMap();
+            renderTodayChecklist();   // 로딩 안내를 먼저 보여준다
+
+            ensureDemoAccount();
+            const savedSession = readStorage('session', null);
+            const savedAccount = savedSession ? findAccount(savedSession.userId) : null;
+
+            if (savedAccount) {
+                await beginSession(savedAccount, false);
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        /* ==========================================
+           저장 계층 (localStorage)
+           서버(MySQL)가 준비되기 전까지는 브라우저에 저장한다.
+           서버가 준비되면 requestStoredValue / saveStoredValue 안을 fetch 로 바꾸면 된다.
+           ========================================== */
+        function readStorage(key, fallbackValue) {
+            try {
+                const rawValue = localStorage.getItem(storagePrefix + key);
+                return rawValue === null ? fallbackValue : JSON.parse(rawValue);
+            } catch (error) {
+                return fallbackValue;
+            }
+        }
+
+        function writeStorage(key, value) {
+            try {
+                localStorage.setItem(storagePrefix + key, JSON.stringify(value));
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function removeStorage(key) {
+            try {
+                localStorage.removeItem(storagePrefix + key);
+            } catch (error) {
+                // 저장 공간을 쓸 수 없는 환경이면 지울 것도 없다
+            }
+        }
+
+        function getUserKey(name) {
+            return `user:${currentUser.userId}:${name}`;
+        }
+
+        function requestStoredValue(name, fallbackValue) {
+            return new Promise((resolve) => {
+                setTimeout(() => resolve(readStorage(getUserKey(name), fallbackValue)), 0);
+            });
+        }
+
+        async function saveStoredValue(name, value) {
+            const isSaved = await new Promise((resolve) => {
+                setTimeout(() => resolve(writeStorage(getUserKey(name), value)), 0);
+            });
+
+            if (!isSaved && !hasShownStorageWarning) {
+                hasShownStorageWarning = true;
+                showToast('브라우저 저장 공간을 쓸 수 없어요. 새로고침하면 변경이 사라질 수 있어요.');
+            }
+            return isSaved;
+        }
+
+        /* ==========================================
+           로그인 / 회원가입 (와이어프레임 1~5번)
+           [임시] 서버 연동 전 Mock 이다. 비밀번호는 저장하지도, 검증하지도 않는다.
+           서버가 준비되면 requestLogin / requestJoin / requestKakaoLogin 안을 fetch 로 바꾼다.
+           (USER 테이블: user_id, password(해시), provider)
+           ========================================== */
+        function simulateServerDelay(delayMs) {
+            return new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+
+        function getAccounts() {
+            const accounts = readStorage('accounts', []);
+            return Array.isArray(accounts) ? accounts : [];
+        }
+
+        function findAccount(userId) {
+            return getAccounts().find(account => account.userId === userId) || null;
+        }
+
+        // 서버의 테스트 사용자(testuser)와 같은 아이디를 미리 만들어 둔다
+        function ensureDemoAccount() {
+            if (findAccount(demoUserId) !== null) return;
+
+            const accounts = getAccounts();
+            accounts.push({ userId: demoUserId, provider: 'local', createdAt: getTodayKey() });
+            writeStorage('accounts', accounts);
+        }
+
+        function checkCredentialFormat(userId, password) {
+            if (!/^[a-zA-Z0-9_]{4,20}$/.test(userId)) return '아이디는 영문, 숫자, _ 로 4~20자여야 해요.';
+            if (password.length < 6) return '비밀번호는 6자 이상 입력해 주세요.';
+            return '';
+        }
+
+        async function requestLogin(userId) {
+            await simulateServerDelay(250);
+
+            const account = findAccount(userId);
+            if (account === null) {
+                return { ok: false, message: '가입되지 않은 아이디예요. Join 을 눌러 가입해 주세요.' };
+            }
+            return { ok: true, account: account };
+        }
+
+        async function requestJoin(userId, password, confirmPassword) {
+            await simulateServerDelay(250);
+
+            if (password !== confirmPassword) {
+                return { ok: false, message: '비밀번호 확인이 일치하지 않아요.' };
+            }
+            if (findAccount(userId) !== null) {
+                return { ok: false, message: '이미 사용 중인 아이디예요.' };
+            }
+
+            const account = { userId: userId, provider: 'local', createdAt: getTodayKey() };
+            const accounts = getAccounts();
+            accounts.push(account);
+            writeStorage('accounts', accounts);
+            return { ok: true, account: account };
+        }
+
+        // 실제로는 카카오 로그인 SDK 로 받은 토큰을 서버가 검증한 뒤 USER(provider='kakao')를 만든다
+        async function requestKakaoLogin() {
+            await simulateServerDelay(250);
+
+            const kakaoUserId = 'kakao_user';
+            let account = findAccount(kakaoUserId);
+
+            if (account === null) {
+                account = { userId: kakaoUserId, provider: 'kakao', createdAt: getTodayKey() };
+                const accounts = getAccounts();
+                accounts.push(account);
+                writeStorage('accounts', accounts);
+            }
+            return { ok: true, account: account };
+        }
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            const isJoin = mode === 'join';
+
+            document.getElementById('joinConfirmField').classList.toggle('hidden', !isJoin);
+            document.getElementById('loginSubmitButton').textContent = isJoin ? '회원가입' : 'Login';
+            document.getElementById('authModeToggle').textContent = isJoin ? '로그인으로 돌아가기' : 'Join';
+            document.getElementById('authSubtitle').textContent = isJoin
+                ? '새 계정을 만들어 운동 기록을 시작해요'
+                : '운동 루틴을 기록하고 이어가요';
+            document.getElementById('loginPassword').autocomplete = isJoin ? 'new-password' : 'current-password';
+            setAuthMessage('');
+        }
+
+        function setAuthMessage(message) {
+            document.getElementById('loginMessage').textContent = message;
+        }
+
+        function setAuthBusy(isBusy) {
+            ['loginSubmitButton', 'kakaoLoginButton', 'authModeToggle'].forEach(buttonId => {
+                document.getElementById(buttonId).disabled = isBusy;
+            });
+        }
+
+        // 로그인 화면이 떠 있는 동안에는 뒤쪽 화면에 포커스가 가지 않게 한다
+        function setAppInert(isInert) {
+            ['mainHeader', 'mainScrollBody', 'mainNav'].forEach(elementId => {
+                const element = document.getElementById(elementId);
+                if (element) element.inert = isInert;
+            });
+        }
+
+        function showLoginScreen() {
+            const loginScreen = document.getElementById('loginScreen');
+            loginScreen.classList.remove('hidden');
+            loginScreen.inert = false;
+            setAppInert(true);
+            setAuthMode('login');
+            document.getElementById('loginUserId').focus();
+        }
+
+        function hideLoginScreen() {
+            const loginScreen = document.getElementById('loginScreen');
+            loginScreen.classList.add('hidden');
+            loginScreen.inert = true;
+            setAppInert(false);
+
+            ['loginUserId', 'loginPassword', 'joinPasswordConfirm'].forEach(inputId => {
+                document.getElementById(inputId).value = '';
+            });
+            setAuthMessage('');
+        }
+
+        function bindAuthEvents() {
+            document.getElementById('loginForm').addEventListener('submit', handleAuthSubmit);
+            document.getElementById('authModeToggle').addEventListener('click', () => {
+                setAuthMode(authMode === 'login' ? 'join' : 'login');
+            });
+            document.getElementById('kakaoLoginButton').addEventListener('click', handleKakaoLogin);
+        }
+
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+
+            const userId = document.getElementById('loginUserId').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const confirmPassword = document.getElementById('joinPasswordConfirm').value;
+
+            const formatError = checkCredentialFormat(userId, password);
+            if (formatError) {
+                setAuthMessage(formatError);
+                return;
+            }
+
+            setAuthBusy(true);
+            const result = authMode === 'join'
+                ? await requestJoin(userId, password, confirmPassword)
+                : await requestLogin(userId);
+            setAuthBusy(false);
+
+            if (!result.ok) {
+                setAuthMessage(result.message);
+                return;
+            }
+            await beginSession(result.account, true);
+        }
+
+        async function handleKakaoLogin() {
+            setAuthBusy(true);
+            const result = await requestKakaoLogin();
+            setAuthBusy(false);
+
+            if (result.ok) await beginSession(result.account, true);
+        }
+
+        async function beginSession(account, isFreshLogin) {
+            currentUser = { userId: account.userId, provider: account.provider, createdAt: account.createdAt };
+            writeStorage('session', { userId: account.userId });
+            hideLoginScreen();
+
+            await loadUserData();
+            applyBodyProfileToInputs();
+            await calculateBodyMetrics(false);
+            await loadWorkoutData();
+
+            switchTab('tab-today');
+            if (isFreshLogin) showToast(`${currentUser.userId} 님, 환영해요!`);
+        }
+
+        function closeAllModals() {
+            [['detailModal', closeDetailModal], ['timerModal', closeTimerModal], ['successModal', closeSuccessModal]]
+                .forEach(([modalId, closeAction]) => {
+                    if (isModalOpen(document.getElementById(modalId))) closeAction();
+                });
+        }
+
+        function logout() {
+            removeStorage('session');
+            closeAllModals();
+            resetClock();
+            if (isRunning) toggleRunningSimulation();
+
+            currentUser = null;
+            workoutState = {};
+            workoutLogs = [];
+            isWorkoutLoaded = false;
+            isWorkoutCustom = false;
+
+            renderCalendarEvents();
+            renderStreak();
+            renderTodayChecklist();
+            switchTab('tab-today');
+            showLoginScreen();
+        }
+
+        // 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 예시 데이터)
+        async function loadUserData() {
+            const [storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
+                requestStoredValue('bodyProfile', null),
+                requestStoredValue('bodyRecords', null),
+                requestStoredValue('dietGoal', null),
+                requestStoredValue('exerciseLogs', null),
+                requestStoredValue('gpsLogs', null)
+            ]);
+
+            bodyProfile = isValidBodyProfile(storedProfile)
+                ? storedProfile
+                : { gender: 'male', age: 28, height: 175, weight: 72.5 };
+
+            bodyRecords = Array.isArray(storedRecords) && storedRecords.length > 0
+                ? storedRecords
+                : buildMockBodyRecords();
+
+            dietGoal = storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)
+                ? storedGoal
+                : buildMockDietGoal();
+
+            exerciseLogs = storedLogs && typeof storedLogs === 'object' && !Array.isArray(storedLogs)
+                ? storedLogs
+                : {};
+
+            gpsLogs = Array.isArray(storedGps) ? storedGps : [];
+
+            const loggedIds = Object.values(exerciseLogs).flat().map(entry => entry.id || 0);
+            nextExerciseLogId = Math.max(0, ...loggedIds) + 1;
+        }
+
+        /* ==========================================
+           다크 모드 / 탭 전환
+           ========================================== */
+        function applyTheme(themeName) {
+            const isDark = themeName === 'dark';
+            document.documentElement.classList.toggle('dark', isDark);
+            document.documentElement.classList.toggle('light', !isDark);
+
+            const darkSwitch = document.getElementById('darkModeSwitch');
+            if (darkSwitch) darkSwitch.setAttribute('aria-checked', String(isDark));
+        }
+
+        function toggleDarkMode() {
+            const willBeDark = !document.documentElement.classList.contains('dark');
+            applyTheme(willBeDark ? 'dark' : 'light');
+            writeStorage('theme', willBeDark ? 'dark' : 'light');
+            showToast(willBeDark ? '다크 모드로 전환되었습니다.' : '라이트 모드로 전환되었습니다.');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-screen').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-brand-600', 'dark:text-brand-400', 'font-bold');
+                btn.classList.add('text-slate-400', 'font-medium');
+            });
+
+            const navTabId = subPageParentNav[tabId] || tabId;
+            const activeNav = document.getElementById('nav-' + navTabId);
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-400', 'font-medium');
+                activeNav.classList.add('text-brand-600', 'dark:text-brand-400', 'font-bold');
+            }
+
+            document.getElementById('mainScrollBody').scrollTop = 0;
+
+            if (tabId === 'tab-running') {
+                setTimeout(relayoutKakaoMap, 100);
+            }
+
+            // 숨겨져 있던 탭에서 달력이 처음 보일 때 크기를 다시 계산한다
+            if (tabId === 'tab-calendar' && calendarInstance !== null) {
+                setTimeout(() => calendarInstance.updateSize(), 0);
+            }
+
+            if (tabId === 'tab-mypage') {
+                fillGoalForm();
+                renderMyPage();
+            }
+            if (tabId === 'tab-body') renderDietSection();
+            if (tabId === 'tab-bmr') renderBmrAnalysis();
+            if (tabId === 'tab-calorie') prefillCalorieWeight();
+        }
+
+        // 헤더의 R 로고: 어느 화면에서든 메인(오늘 루틴) 화면으로 돌아간다
+        function goHome() {
+            closeAllModals();
+            switchTab('tab-today');
+        }
+
+        function bindHeaderButtons() {
+            // 와이어프레임 20번의 마이페이지 버튼
+            document.getElementById('profileButton').addEventListener('click', () => {
+                switchTab('tab-mypage');
+            });
+        }
+
+        /* ==========================================
+           운동 기록 (불러오기 / 저장)
+           ========================================== */
+
+        // Mock 데이터: 오늘 기준으로 과거 기록을 만든다 (null = 기록 없음)
+        function buildMockWorkoutState() {
+            const statusByDaysAgo = [
+                'done', 'done', 'done', 'done', 'done', 'done',                       // 1~6일 전: 6일 연속 완수
+                'partial',                                                            // 7일 전: 일부 완료 (연속 끊김)
+                'done', 'done', 'done',                                               // 8~10일 전
+                null,                                                                 // 11일 전: 기록 없음
+                'done', 'done',                                                       // 12~13일 전
+                'missed',                                                             // 14일 전: 전부 미완료
+                'done', 'done', 'done', 'done', 'done', 'done', 'done', 'done',       // 15~22일 전
+                null, 'done', 'done', 'partial', 'done', 'done', 'done'               // 23~29일 전
+            ];
+
+            const today = new Date();
+            const mockState = {};
+            let routineId = 1;
+
+            const createItem = (routineType, completed) => ({
+                id: routineId++,
+                name: defaultRoutineNames[routineType],
+                completed: completed,
+                routineType: routineType
+            });
+
+            statusByDaysAgo.forEach((status, index) => {
+                if (status === null) return;
+
+                const dateKey = formatDateKey(addDays(today, -(index + 1)));
+                const secondType = index % 2 === 0 ? 'WEIGHT' : 'REST';
+
+                if (status === 'done') {
+                    mockState[dateKey] = [createItem('RUNNING', true), createItem(secondType, true)];
+                } else if (status === 'partial') {
+                    mockState[dateKey] = [createItem('RUNNING', true), createItem(secondType, false)];
+                } else {
+                    mockState[dateKey] = [createItem('WEIGHT', false)];
+                }
+            });
+
+            // 오늘: 3개 항목 (2개 완료)
+            mockState[getTodayKey()] = [
+                createItem('RUNNING', true),
+                createItem('WEIGHT', true),
+                createItem('REST', false)
+            ];
+
+            // 모레: 예정된 운동
+            mockState[formatDateKey(addDays(today, 2))] = [
+                { id: routineId++, name: '🏋️ 운동 (하체 데이)', completed: false, routineType: 'WEIGHT' }
+            ];
+
+            nextRoutineId = routineId;
+            return mockState;
+        }
+
+        async function getWorkoutState(userId) {
+            // 백엔드가 준비되면 아래 주석을 풀고 저장 계층 호출을 지우면 된다.
+            // const response = await fetch(`/api/users/${userId}/workout-logs`);
+            // if (!response.ok) {
+            //     throw new Error(`운동 기록 요청 실패 (HTTP ${response.status})`);
+            // }
+            // return await response.json();
+
+            // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 예시 데이터를 만든다
+            const storedWorkout = await requestStoredValue('workout', null);
+
+            if (storedWorkout && storedWorkout.isCustom && storedWorkout.state) {
+                const usedIds = Object.values(storedWorkout.state).flat().map(item => item.id || 0);
+                nextRoutineId = Math.max(storedWorkout.nextRoutineId || 1, Math.max(0, ...usedIds) + 1);
+                isWorkoutCustom = true;
+                return storedWorkout.state;
+            }
+
+            isWorkoutCustom = false;
+            return await requestWorkoutData(userId);
+        }
+
+        async function persistWorkoutState() {
+            await saveStoredValue('workout', {
+                isCustom: true,
+                nextRoutineId: nextRoutineId,
+                state: workoutState
+            });
+        }
+
+        // 운동 항목이 바뀔 때마다 부르는 공통 함수: 화면 갱신 + 저장
+        async function commitWorkoutChange() {
+            isWorkoutCustom = true;
+            refreshAllViews();
+            await persistWorkoutState();
+        }
+
+        function refreshAllViews() {
+            workoutLogs = buildWorkoutLogs();
+            renderTodayChecklist();
+            renderRoutineSelection();
+            renderCalendarEvents();
+            renderStreak();
+
+            if (currentUser !== null) {
+                renderMyPage();
+                renderDietSection();
+            }
+        }
+
+        function estimateBurnedKcal(startDateKey, endDateKey) {
+            let totalKcal = 0;
+
+            Object.keys(workoutState).forEach(dateKey => {
+                if (startDateKey && dateKey < startDateKey) return;
+                if (endDateKey && dateKey > endDateKey) return;
+
+                workoutState[dateKey].forEach(item => {
+                    if (item.completed) {
+                        totalKcal += estimatedKcalByType[item.routineType || 'CUSTOM'] || 150;
+                    }
+                });
+            });
+            return totalKcal;
+        }
+
+        function updateTodayProgress(completedCount, totalCount) {
+            const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+            document.getElementById('todayPercentText').textContent = percent + '%';
+            document.getElementById('todayProgressBar').style.width = percent + '%';
+            setIconText(
+                document.getElementById('todayTaskSummary'),
+                'fa-solid fa-circle-check text-emerald-400 mr-1',
+                `${totalCount}개 중 ${completedCount}개 완료`
+            );
+
+            const todayKey = getTodayKey();
+            document.getElementById('todayKcalText').textContent = String(estimateBurnedKcal(todayKey, todayKey));
+        }
+
+        /* ==========================================
+           모달 (닫기 / 날짜 상세 / 루틴 체크)
+           ========================================== */
+        function bindModalShortcuts() {
+            const modalActions = [
+                { id: 'successModal', close: closeSuccessModal },
+                { id: 'timerModal', close: closeTimerModal },
+                { id: 'detailModal', close: closeDetailModal }
+            ];
+
+            // 어두운 배경을 누르면 닫기
+            modalActions.forEach(action => {
+                const modalElement = document.getElementById(action.id);
+                modalElement.addEventListener('click', (event) => {
+                    if (event.target === modalElement) action.close();
+                });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+
+                const openedAction = modalActions.find(action => isModalOpen(document.getElementById(action.id)));
+                if (openedAction) openedAction.close();
+            });
+        }
+
+        function openDetailModal(dateStr, panelName) {
+            currentActiveDate = dateStr;
+
+            const status = getDayStatus(workoutState[dateStr]);
+            const titleText = status === 'none'
+                ? `${formatKoreanDate(dateStr)} 운동 목록`
+                : `${formatKoreanDate(dateStr)} 운동 목록 · ${statusLabels[status]}`;
+
+            setIconText(document.getElementById('modalDateTitle'), 'fa-solid fa-calendar-day', titleText);
+            renderModalRoutineList();
+            setDetailPanel(panelName || 'routine');
+
+            showModalElement(document.getElementById('detailModal'));
+        }
+
+        async function toggleRoutineStatus(dateStr, itemId) {
+            if (!workoutState[dateStr]) return;
+
+            const item = workoutState[dateStr].find(routine => routine.id === itemId);
+            if (!item) return;
+
+            const wasCompleted = getDayStatus(workoutState[dateStr]) === 'completed';
+            item.completed = !item.completed;
+
+            renderModalRoutineList();
+            await commitWorkoutChange();
+            showToast(item.completed ? `"${item.name}" 완료 처리!` : `"${item.name}" 미완료 변경.`);
+
+            const isNowCompleted = getDayStatus(workoutState[dateStr]) === 'completed';
+            if (!wasCompleted && isNowCompleted && dateStr === getTodayKey()) {
+                openSuccessModal();
+            }
+        }
+
+        async function deleteRoutineItem(dateStr, itemId) {
+            if (!workoutState[dateStr]) return;
+
+            workoutState[dateStr] = workoutState[dateStr].filter(routine => routine.id !== itemId);
+            renderModalRoutineList();
+            await commitWorkoutChange();
+            showToast('운동 항목이 삭제되었습니다.');
+        }
+
+        async function addNewRoutineItem(event) {
+            event.preventDefault();
+
+            const input = document.getElementById('newRoutineInput');
+            const inputValue = input.value.trim();
+            if (!inputValue) return;
+
+            if (!workoutState[currentActiveDate]) {
+                workoutState[currentActiveDate] = [];
+            }
+
+            workoutState[currentActiveDate].push({
+                id: nextRoutineId++,
+                name: inputValue,
+                completed: false,
+                routineType: 'CUSTOM'
+            });
+
+            input.value = '';
+            renderModalRoutineList();
+            await commitWorkoutChange();
+            showToast('새 운동 항목이 추가되었습니다!');
+        }
+
+        /* ==========================================
+           신체 데이터 (BODY_RECORD) / BMI / BMR
+           ========================================== */
+        function setGender(gender) {
+            selectedGender = gender;
+            const maleBtn = document.getElementById('genderMale');
+            const femaleBtn = document.getElementById('genderFemale');
+
+            if (gender === 'male') {
+                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300";
+                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
+            } else {
+                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300";
+                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
+            }
+        }
+
+        function readBodyInputs() {
+            return {
+                gender: selectedGender,
+                age: parseFloat(document.getElementById('inputAge').value),
+                height: parseFloat(document.getElementById('inputHeight').value),
+                weight: parseFloat(document.getElementById('inputWeight').value)
+            };
+        }
+
+        function getBodyProfileError(profile) {
+            if (!Number.isFinite(profile.age) || profile.age < 10 || profile.age > 100) {
+                return '나이는 10~100세 사이로 입력해 주세요.';
+            }
+            if (!Number.isFinite(profile.height) || profile.height < 100 || profile.height > 250) {
+                return '키는 100~250cm 사이로 입력해 주세요.';
+            }
+            if (!Number.isFinite(profile.weight) || profile.weight < 20 || profile.weight > 300) {
+                return '몸무게는 20~300kg 사이로 입력해 주세요.';
+            }
+            return '';
+        }
+
+        function isValidBodyProfile(profile) {
+            return Boolean(profile)
+                && (profile.gender === 'male' || profile.gender === 'female')
+                && getBodyProfileError(profile) === '';
+        }
+
+        function applyBodyProfileToInputs() {
+            document.getElementById('inputAge').value = bodyProfile.age;
+            document.getElementById('inputHeight').value = bodyProfile.height;
+            document.getElementById('inputWeight').value = bodyProfile.weight;
+            setGender(bodyProfile.gender);
+        }
+
+        function getBmiCategory(bmi) {
+            if (bmi < 18.5) return { label: '저체중', needleAngle: 70 };
+            if (bmi < 23) return { label: '정상', needleAngle: 25 };
+            if (bmi < 25) return { label: '과체중', needleAngle: -25 };
+            return { label: '비만', needleAngle: -70 };
+        }
+
+        // BMI = 체중 / 키(m)^2,  BMR = Mifflin-St Jeor 공식
+        function computeBodyMetrics(profile) {
+            const heightM = profile.height / 100;
+            const bmi = profile.weight / (heightM * heightM);
+
+            let bmr = (10 * profile.weight) + (6.25 * profile.height) - (5 * profile.age);
+            bmr += profile.gender === 'male' ? 5 : -161;
+
+            const category = getBmiCategory(bmi);
+            return { bmi: bmi, bmr: bmr, label: category.label, needleAngle: category.needleAngle };
+        }
+
+        function renderBodyMetrics(metrics) {
+            document.getElementById('resBmiText').textContent = `${metrics.bmi.toFixed(1)} (${metrics.label})`;
+            document.getElementById('resBmrText').textContent = `${Math.round(metrics.bmr).toLocaleString()} kcal`;
+
+            const needle = document.getElementById('bmiGaugeNeedle');
+            if (needle) {
+                needle.style.transform = `rotate(${metrics.needleAngle}deg)`;
+            }
+        }
+
+        // 오늘 날짜의 BODY_RECORD 를 새로 만들거나 덮어쓴다
+        function saveBodyRecord(profile, metrics) {
+            const todayKey = getTodayKey();
+            const existingIndex = bodyRecords.findIndex(record => record.recordDate === todayKey);
+
+            const record = {
+                bodyRecordId: existingIndex >= 0
+                    ? bodyRecords[existingIndex].bodyRecordId
+                    : bodyRecords.reduce((maxId, item) => Math.max(maxId, item.bodyRecordId || 0), 0) + 1,
+                userId: currentUser.userId,
+                recordDate: todayKey,
+                height: profile.height,
+                weight: profile.weight,
+                bmi: Number(metrics.bmi.toFixed(2)),
+                bmr: Math.round(metrics.bmr)
+            };
+
+            if (existingIndex >= 0) {
+                bodyRecords[existingIndex] = record;
+            } else {
+                bodyRecords.push(record);
+            }
+            bodyRecords.sort((a, b) => a.recordDate.localeCompare(b.recordDate));
+        }
+
+        async function calculateBodyMetrics(shouldSave) {
+            const profile = readBodyInputs();
+            const errorMessage = getBodyProfileError(profile);
+
+            if (errorMessage) {
+                showToast(errorMessage);
+                return;
+            }
+
+            const metrics = computeBodyMetrics(profile);
+            renderBodyMetrics(metrics);
+
+            if (!shouldSave || currentUser === null) return;
+
+            bodyProfile = profile;
+            saveBodyRecord(profile, metrics);
+            await Promise.all([
+                saveStoredValue('bodyProfile', bodyProfile),
+                saveStoredValue('bodyRecords', bodyRecords)
+            ]);
+
+            renderDietSection();
+            renderMyPage();
+            renderBmrAnalysis();
+            showToast('신체 데이터 및 BMI 수치가 업데이트 되었습니다.');
+        }
+
+        /* ==========================================
+           다이어트 기간 비교 (와이어프레임 32~36번): BODY_RECORD + DIET_GOAL
+           ========================================== */
+        function getBodyRecordsSorted() {
+            return [...bodyRecords].sort((a, b) => a.recordDate.localeCompare(b.recordDate));
+        }
+
+        // 예시 데이터: 최근 6개월 체중 (마지막 값이 현재 체중)
+        function buildMockBodyRecords() {
+            const today = new Date();
+            const weightOffsets = [6.0, 3.5, 4.3, 2.7, 0.9, 0];
+
+            return weightOffsets.map((offset, index) => {
+                const monthsAgo = weightOffsets.length - 1 - index;
+                const recordDate = monthsAgo === 0
+                    ? today
+                    : new Date(today.getFullYear(), today.getMonth() - monthsAgo, 1);
+                const weight = Math.round((bodyProfile.weight + offset) * 10) / 10;
+                const metrics = computeBodyMetrics({ ...bodyProfile, weight: weight });
+
+                return {
+                    bodyRecordId: index + 1,
+                    userId: currentUser.userId,
+                    recordDate: formatDateKey(recordDate),
+                    height: bodyProfile.height,
+                    weight: weight,
+                    bmi: Number(metrics.bmi.toFixed(2)),
+                    bmr: Math.round(metrics.bmr)
+                };
+            });
+        }
+
+        function buildMockDietGoal() {
+            const firstRecord = getBodyRecordsSorted()[0];
+
+            return {
+                goalId: 1,
+                userId: currentUser.userId,
+                targetWeight: Math.round((bodyProfile.weight - 4.5) * 2) / 2,
+                startDate: firstRecord ? firstRecord.recordDate : getTodayKey(),
+                endDate: formatDateKey(addDays(new Date(), 60)),
+                isActive: true
+            };
+        }
+
+        function computeRecordBmi(record) {
+            if (record.bmi) return record.bmi;
+            const heightM = record.height / 100;
+            return record.weight / (heightM * heightM);
+        }
+
+        // 달성도 = (시작 체중 - 현재 체중) / (시작 체중 - 목표 체중)
+        function calculateDietProgress() {
+            const records = getBodyRecordsSorted();
+            if (records.length === 0 || dietGoal === null) return null;
+
+            const startRecord = records.find(record => record.recordDate >= dietGoal.startDate) || records[0];
+            const latestRecord = records[records.length - 1];
+            const totalGap = startRecord.weight - dietGoal.targetWeight;
+
+            let percent = totalGap === 0 ? 100 : ((startRecord.weight - latestRecord.weight) / totalGap) * 100;
+            percent = Math.max(0, Math.min(100, Math.round(percent)));
+
+            return {
+                startRecord: startRecord,
+                latestRecord: latestRecord,
+                startWeight: startRecord.weight,
+                currentWeight: latestRecord.weight,
+                targetWeight: dietGoal.targetWeight,
+                changeKg: latestRecord.weight - startRecord.weight,
+                percent: percent
+            };
+        }
+
+        function createSvgElement(tagName, attributes) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+            Object.entries(attributes || {}).forEach(([name, value]) => {
+                element.setAttribute(name, String(value));
+            });
+            return element;
+        }
+
+        function appendSvgText(svg, attributes, text) {
+            const textElement = createSvgElement('text', attributes);
+            textElement.textContent = text;
+            svg.appendChild(textElement);
+        }
+
+        function drawWeightChart() {
+            const svg = document.getElementById('weightChartSvg');
+            svg.replaceChildren();
+
+            const records = getBodyRecordsSorted().slice(-8);
+            if (records.length === 0) {
+                appendSvgText(svg, { x: 150, y: 55, 'font-size': 10, fill: '#94a3b8', 'text-anchor': 'middle' },
+                    '체중 기록이 없어요. 신체 데이터를 저장해 보세요.');
+                return;
+            }
+
+            const weights = records.map(record => record.weight);
+            const hasGoal = dietGoal !== null && Number.isFinite(dietGoal.targetWeight);
+            const scaleValues = hasGoal ? [...weights, dietGoal.targetWeight] : weights;
+
+            // 눈금 값이 정수로 떨어지도록 범위를 짝수 칸으로 맞춘다
+            const minValue = Math.floor(Math.min(...scaleValues)) - 1;
+            let maxValue = Math.ceil(Math.max(...scaleValues)) + 1;
+            if (maxValue - minValue < 4) maxValue = minValue + 4;
+            if ((maxValue - minValue) % 2 === 1) maxValue += 1;
+
+            const getY = (weight) => 80 - ((weight - minValue) / (maxValue - minValue)) * 60;
+            const getX = (index) => (records.length === 1 ? 160 : 40 + index * (240 / (records.length - 1)));
+
+            // 눈금선과 눈금 글자
+            [20, 50, 80].forEach(lineY => {
+                svg.appendChild(createSvgElement('line', {
+                    x1: 30, y1: lineY, x2: 290, y2: lineY, stroke: '#cbd5e1', 'stroke-dasharray': 2
+                }));
+                const labelValue = maxValue - ((lineY - 20) / 60) * (maxValue - minValue);
+                appendSvgText(svg, { x: 24, y: lineY + 3, 'font-size': 8, fill: '#94a3b8', 'text-anchor': 'end' },
+                    `${labelValue}kg`);
+            });
+
+            // 목표 체중선
+            if (hasGoal) {
+                const goalY = getY(dietGoal.targetWeight);
+                svg.appendChild(createSvgElement('line', {
+                    x1: 30, y1: goalY, x2: 290, y2: goalY, stroke: '#10b981', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'
+                }));
+                appendSvgText(svg, { x: 290, y: goalY - 3, 'font-size': 8, fill: '#059669', 'font-weight': 'bold', 'text-anchor': 'end' },
+                    `목표 ${dietGoal.targetWeight}kg`);
+            }
+
+            // 꺾은선 + 아래 면
+            const points = records.map((record, index) => ({ x: getX(index), y: getY(record.weight) }));
+            const linePath = points
+                .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+                .join(' ');
+            const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 90 L ${points[0].x.toFixed(1)} 90 Z`;
+
+            const defs = createSvgElement('defs');
+            const gradient = createSvgElement('linearGradient', { id: 'chartGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
+            gradient.appendChild(createSvgElement('stop', { offset: '0%', 'stop-color': '#3b82f6' }));
+            gradient.appendChild(createSvgElement('stop', { offset: '100%', 'stop-color': '#3b82f6', 'stop-opacity': 0 }));
+            defs.appendChild(gradient);
+            svg.appendChild(defs);
+
+            svg.appendChild(createSvgElement('path', { d: areaPath, fill: 'url(#chartGradient)', opacity: 0.2 }));
+            svg.appendChild(createSvgElement('path', {
+                d: linePath, fill: 'none', stroke: '#3b82f6', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+            }));
+
+            // 점 + 날짜 글자
+            points.forEach((point, index) => {
+                const isLast = index === points.length - 1;
+                svg.appendChild(createSvgElement('circle', {
+                    cx: point.x, cy: point.y, r: isLast ? 5 : 3.5,
+                    fill: isLast ? '#10b981' : '#3b82f6',
+                    stroke: isLast ? '#ffffff' : 'none', 'stroke-width': isLast ? 2 : 0
+                }));
+
+                const dateKey = records[index].recordDate;
+                appendSvgText(svg, {
+                    x: point.x, y: 105, 'font-size': 8,
+                    fill: isLast ? '#3b82f6' : '#64748b', 'font-weight': isLast ? 'bold' : 'normal', 'text-anchor': 'middle'
+                }, `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`);
+            });
+
+            svg.setAttribute('aria-label', `체중 변화 그래프: ${weights[0]}kg에서 ${weights[weights.length - 1]}kg`);
+        }
+
+        function renderDietSection() {
+            if (currentUser === null || dietGoal === null) return;
+
+            const setText = (elementId, text) => {
+                document.getElementById(elementId).textContent = text;
+            };
+
+            setText('dietPeriodText', `(${dietGoal.startDate} ~ ${dietGoal.endDate}${dietGoal.isActive ? '' : ', 종료됨'})`);
+            drawWeightChart();
+
+            const progress = calculateDietProgress();
+            if (progress === null) return;
+
+            const startBmi = computeRecordBmi(progress.startRecord);
+            const changeSign = progress.changeKg > 0 ? '+' : '';
+
+            setText('dietAchieveText', `${progress.percent}% 달성`);
+            document.getElementById('dietProgressBar').style.width = progress.percent + '%';
+            setText('dietChangeText', `${changeSign}${progress.changeKg.toFixed(1)} kg`);
+            setText('dietBurnedText', `약 ${estimateBurnedKcal(dietGoal.startDate, getTodayKey()).toLocaleString()} kcal`);
+            setText('dietBeforeWeightText', `${progress.startWeight.toFixed(1)} kg`);
+            setText('dietBeforeBmiText', `${startBmi.toFixed(1)} (${getBmiCategory(startBmi).label})`);
+            setText('dietTargetText', `${progress.targetWeight} kg`);
+        }
+
+        /* ==========================================
+           운동일지 (와이어프레임 24~26번): EXERCISE_SET (세트 / 중량 / 횟수)
+           ========================================== */
+        function setDetailPanel(panelName) {
+            activeDetailPanel = panelName === 'log' ? 'log' : 'routine';
+            const isRoutine = activeDetailPanel === 'routine';
+
+            document.getElementById('routinePanel').classList.toggle('hidden', !isRoutine);
+            document.getElementById('logPanel').classList.toggle('hidden', isRoutine);
+            document.getElementById('detailTabRoutine').setAttribute('aria-pressed', String(isRoutine));
+            document.getElementById('detailTabLog').setAttribute('aria-pressed', String(!isRoutine));
+
+            if (!isRoutine) renderExerciseLogList();
+        }
+
+        function createExerciseLogRow(entry, dateStr) {
+            const rowElement = document.createElement('div');
+            rowElement.className = 'grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 items-center px-1 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-[11px] font-bold text-slate-800 dark:text-slate-100';
+
+            const nameElement = document.createElement('span');
+            nameElement.className = 'truncate min-w-0';
+            nameElement.textContent = entry.exerciseName;
+            nameElement.setAttribute('title', entry.exerciseName);
+
+            const setElement = document.createElement('span');
+            setElement.className = 'text-center';
+            setElement.textContent = `${entry.setCount}세트`;
+
+            const weightElement = document.createElement('span');
+            weightElement.className = 'text-center';
+            weightElement.textContent = `${entry.weight}kg`;
+
+            const repsElement = document.createElement('span');
+            repsElement.className = 'text-center';
+            repsElement.textContent = `${entry.reps}회`;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'text-slate-300 dark:text-slate-600 hover:text-red-500 transition';
+            deleteButton.setAttribute('aria-label', `${entry.exerciseName} 삭제`);
+            deleteButton.appendChild(createIcon('fa-solid fa-xmark text-xs'));
+            deleteButton.addEventListener('click', () => deleteExerciseLog(dateStr, entry.id));
+
+            rowElement.append(nameElement, setElement, weightElement, repsElement, deleteButton);
+            return rowElement;
+        }
+
+        function renderExerciseLogList() {
+            const listElement = document.getElementById('exerciseLogList');
+            const entries = exerciseLogs[currentActiveDate] || [];
+
+            listElement.replaceChildren();
+
+            if (entries.length === 0) {
+                listElement.appendChild(createMessageBox('기록된 운동이 없어요. 아래에서 추가해 주세요.', 'text-center py-4 text-xs text-slate-400'));
+            } else {
+                entries.forEach(entry => listElement.appendChild(createExerciseLogRow(entry, currentActiveDate)));
+            }
+
+            // 볼륨 = 세트 x 중량 x 횟수의 합
+            const totalVolume = entries.reduce((sum, entry) => sum + entry.setCount * entry.weight * entry.reps, 0);
+            document.getElementById('exerciseLogSummary').textContent = entries.length > 0
+                ? `총 ${entries.length}종목, 볼륨 ${Math.round(totalVolume).toLocaleString()} kg`
+                : '';
+        }
+
+        async function addExerciseLog(event) {
+            event.preventDefault();
+
+            const exerciseName = document.getElementById('logExerciseName').value.trim();
+            const setCount = parseInt(document.getElementById('logSets').value, 10);
+            const weight = parseFloat(document.getElementById('logWeight').value);
+            const reps = parseInt(document.getElementById('logReps').value, 10);
+
+            if (!exerciseName) {
+                showToast('운동명을 입력해 주세요.');
+                return;
+            }
+            if (!Number.isInteger(setCount) || setCount < 1 || setCount > 20) {
+                showToast('세트는 1~20 사이로 입력해 주세요.');
+                return;
+            }
+            if (!Number.isFinite(weight) || weight < 0 || weight > 500) {
+                showToast('중량은 0~500kg 사이로 입력해 주세요.');
+                return;
+            }
+            if (!Number.isInteger(reps) || reps < 1 || reps > 200) {
+                showToast('횟수는 1~200 사이로 입력해 주세요.');
+                return;
+            }
+
+            if (!exerciseLogs[currentActiveDate]) {
+                exerciseLogs[currentActiveDate] = [];
+            }
+            exerciseLogs[currentActiveDate].push({
+                id: nextExerciseLogId++,
+                exerciseName: exerciseName,
+                setCount: setCount,
+                weight: weight,
+                reps: reps
+            });
+
+            ['logExerciseName', 'logSets', 'logWeight', 'logReps'].forEach(inputId => {
+                document.getElementById(inputId).value = '';
+            });
+            renderExerciseLogList();
+            await saveStoredValue('exerciseLogs', exerciseLogs);
+            showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+        }
+
+        async function deleteExerciseLog(dateStr, logId) {
+            exerciseLogs[dateStr] = (exerciseLogs[dateStr] || []).filter(entry => entry.id !== logId);
+            renderExerciseLogList();
+            await saveStoredValue('exerciseLogs', exerciseLogs);
+            showToast('운동 기록을 삭제했어요.');
+        }
+
+        async function saveExerciseLogs() {
+            const isSaved = await saveStoredValue('exerciseLogs', exerciseLogs);
+            if (isSaved) showToast('운동일지가 저장되었습니다.');
+        }
+
+        /* ==========================================
+           오늘의 운동 선택 (와이어프레임 12~15번): TODAY_ROUTINE_SELECTION
+           ========================================== */
+        function renderRoutineSelection() {
+            const todayRoutines = workoutState[getTodayKey()] || [];
+
+            document.querySelectorAll('.type-chip').forEach(chip => {
+                const hasType = todayRoutines.some(item => (item.routineType || 'CUSTOM') === chip.dataset.routineType);
+                chip.setAttribute('aria-pressed', String(hasType));
+            });
+        }
+
+        async function toggleRoutineType(routineType) {
+            if (!isWorkoutLoaded) return;
+            if (!Object.prototype.hasOwnProperty.call(defaultRoutineNames, routineType)) return;
+
+            const todayKey = getTodayKey();
+            const routines = workoutState[todayKey] || [];
+            const hasType = routines.some(item => item.routineType === routineType);
+
+            if (hasType) {
+                workoutState[todayKey] = routines.filter(item => item.routineType !== routineType);
+                showToast('오늘 루틴에서 뺐어요.');
+            } else {
+                routines.push({
+                    id: nextRoutineId++,
+                    name: defaultRoutineNames[routineType],
+                    completed: false,
+                    routineType: routineType
+                });
+                workoutState[todayKey] = routines;
+                showToast('오늘 루틴에 추가했어요.');
+            }
+            await commitWorkoutChange();
+        }
+
+        function confirmRoutineSelection() {
+            const todayKey = getTodayKey();
+            const routines = workoutState[todayKey] || [];
+            const hasType = (routineType) => routines.some(item => item.routineType === routineType);
+
+            if (hasType('RUNNING')) {
+                switchTab('tab-running');
+                showToast('런닝 지도를 열었어요. 트래킹을 시작해 보세요.');
+            } else if (hasType('WEIGHT')) {
+                openDetailModal(todayKey, 'log');
+            } else if (hasType('REST')) {
+                showToast('오늘은 휴식으로 정했어요. 푹 쉬어요!');
+            } else {
+                showToast('오늘 할 운동을 먼저 선택해 주세요.');
+            }
+        }
+
+        /* ==========================================
+           성공 화면 (와이어프레임 19번)
+           ========================================== */
+        function openSuccessModal() {
+            if (isModalOpen(document.getElementById('detailModal'))) closeDetailModal();
+
+            const today = new Date();
+            const monthText = String(today.getMonth() + 1).padStart(2, '0');
+
+            document.getElementById('successDateText').textContent = `${today.getFullYear()}.${monthText} 캘린더에 기록되었습니다.`;
+            document.getElementById('successStreakText').textContent = `🔥 연속 ${calculateDisplayStreak()}일째 성공 중`;
+            showModalElement(document.getElementById('successModal'));
+        }
+
+        function closeSuccessModal() {
+            hideModalElement(document.getElementById('successModal'));
+        }
+
+        /* ==========================================
+           런닝 종료 및 기록 저장 (와이어프레임 16~19번): GPS_LOG
+           ========================================== */
+        async function finishRunningAndSave() {
+            if (currentUser === null) return;
+
+            if (secondsElapsed <= 0 || distanceKm <= 0) {
+                showToast('저장할 런닝 기록이 없어요. 트래킹을 먼저 시작해 주세요.');
+                return;
+            }
+            if (isRunning) toggleRunningSimulation();
+
+            gpsLogs.push({
+                gpsId: gpsLogs.reduce((maxId, log) => Math.max(maxId, log.gpsId || 0), 0) + 1,
+                recordDate: getTodayKey(),
+                distance: Number(distanceKm.toFixed(2)),
+                calories: Math.round(caloriesBurned),
+                durationSec: secondsElapsed
+            });
+            await saveStoredValue('gpsLogs', gpsLogs);
+            // 서버가 준비되면 여기서 saveGpsRecord(selectionId, distance, calories, routePath) 를 호출한다.
+
+            // 오늘의 런닝 항목을 완료 처리한다 (없으면 새로 만든다)
+            const todayKey = getTodayKey();
+            const wasCompleted = getDayStatus(workoutState[todayKey]) === 'completed';
+            const routines = workoutState[todayKey] || [];
+            const runningRoutines = routines.filter(item => item.routineType === 'RUNNING');
+
+            if (runningRoutines.length === 0) {
+                routines.push({ id: nextRoutineId++, name: defaultRoutineNames.RUNNING, completed: true, routineType: 'RUNNING' });
+            } else {
+                runningRoutines.forEach(item => {
+                    item.completed = true;
+                });
+            }
+            workoutState[todayKey] = routines;
+
+            await commitWorkoutChange();
+            resetRunningData();
+            showToast('런닝 기록을 저장했어요.');
+
+            if (!wasCompleted && getDayStatus(workoutState[todayKey]) === 'completed') {
+                openSuccessModal();
+            }
+        }
+
+        /* ==========================================
+           마이페이지: USER / BODY_RECORD / DIET_GOAL / 운동 통계
+           ========================================== */
+        function calculateWorkoutStats() {
+            const todayKey = getTodayKey();
+            const pastLogs = workoutLogs.filter(log => log.workoutDate <= todayKey);
+            const completedDays = pastLogs.filter(log => log.isCompleted).length;
+
+            return {
+                totalDays: pastLogs.length,
+                completedDays: completedDays,
+                completionRate: pastLogs.length > 0 ? Math.round((completedDays / pastLogs.length) * 100) : 0,
+                currentStreak: calculateDisplayStreak(),
+                longestStreak: workoutLogs.reduce((maxStreak, log) => Math.max(maxStreak, log.currentStreak), 0),
+                runCount: gpsLogs.length,
+                runDistance: gpsLogs.reduce((sum, log) => sum + log.distance, 0),
+                burnedKcal: estimateBurnedKcal(null, todayKey)
+            };
+        }
+
+        function renderMyPage() {
+            if (currentUser === null) return;
+
+            const setText = (elementId, text) => {
+                document.getElementById(elementId).textContent = text;
+            };
+            const metrics = computeBodyMetrics(bodyProfile);
+            const stats = calculateWorkoutStats();
+            const isKakao = currentUser.provider === 'kakao';
+
+            // 프로필
+            setText('myAvatar', currentUser.userId.charAt(0).toUpperCase());
+            setText('myUserId', currentUser.userId);
+            setText('myJoinDate', currentUser.createdAt ? formatKoreanDate(currentUser.createdAt) : '-');
+
+            const providerBadge = document.getElementById('myProviderBadge');
+            providerBadge.textContent = isKakao ? '카카오 로그인' : '일반 계정';
+            providerBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${isKakao
+                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`;
+
+            // 신체 정보
+            setText('myBodyBasis', `${bodyProfile.gender === 'male' ? '남성' : '여성'}, ${bodyProfile.age}세`);
+            setText('myHeight', `${bodyProfile.height} cm`);
+            setText('myWeight', `${bodyProfile.weight} kg`);
+            setText('myBmi', `${metrics.bmi.toFixed(1)} (${metrics.label})`);
+            setText('myBmr', `${Math.round(metrics.bmr).toLocaleString()} kcal`);
+
+            // 다이어트 목표 진행
+            const progress = calculateDietProgress();
+            if (progress !== null) {
+                setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
+                document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+            }
+
+            // 운동 통계
+            setText('statTotalDays', `${stats.totalDays}일`);
+            setText('statCompletedDays', `${stats.completedDays}일`);
+            setText('statCompletionRate', `${stats.completionRate}%`);
+            setText('statCurrentStreak', `${stats.currentStreak}일`);
+            setText('statLongestStreak', `${stats.longestStreak}일`);
+            setText('statRunCount', `${stats.runCount}회`);
+            setText('statRunDistance', `${stats.runDistance.toFixed(1)} km`);
+            setText('statBurnedKcal', `${stats.burnedKcal.toLocaleString()} kcal`);
+        }
+
+        function fillGoalForm() {
+            if (dietGoal === null) return;
+
+            document.getElementById('goalTargetWeight').value = dietGoal.targetWeight;
+            document.getElementById('goalStartDate').value = dietGoal.startDate;
+            document.getElementById('goalEndDate').value = dietGoal.endDate;
+            document.getElementById('goalIsActive').checked = Boolean(dietGoal.isActive);
+        }
+
+        async function saveDietGoal(event) {
+            event.preventDefault();
+            if (currentUser === null) return;
+
+            const targetWeight = parseFloat(document.getElementById('goalTargetWeight').value);
+            const startDate = document.getElementById('goalStartDate').value;
+            const endDate = document.getElementById('goalEndDate').value;
+            const isActive = document.getElementById('goalIsActive').checked;
+
+            if (!Number.isFinite(targetWeight) || targetWeight < 20 || targetWeight > 300) {
+                showToast('목표 체중은 20~300kg 사이로 입력해 주세요.');
+                return;
+            }
+            if (!startDate || !endDate) {
+                showToast('시작일과 종료일을 모두 선택해 주세요.');
+                return;
+            }
+            if (startDate > endDate) {
+                showToast('종료일은 시작일보다 빠를 수 없어요.');
+                return;
+            }
+
+            dietGoal = {
+                goalId: dietGoal ? dietGoal.goalId : 1,
+                userId: currentUser.userId,
+                targetWeight: targetWeight,
+                startDate: startDate,
+                endDate: endDate,
+                isActive: isActive
+            };
+
+            await saveStoredValue('dietGoal', dietGoal);
+            renderDietSection();
+            renderMyPage();
+            showToast('다이어트 목표가 저장되었습니다.');
+        }
+
+        function disarmResetButton() {
+            isResetArmed = false;
+            clearTimeout(resetArmTimerId);
+            document.getElementById('resetDataLabel').textContent = '내 기록 모두 삭제';
+        }
+
+        // 실수로 지우지 않도록 두 번 눌러야 삭제된다
+        async function handleResetData() {
+            if (currentUser === null) return;
+
+            if (!isResetArmed) {
+                isResetArmed = true;
+                document.getElementById('resetDataLabel').textContent = '정말 삭제할까요? 한 번 더 누르세요';
+                clearTimeout(resetArmTimerId);
+                resetArmTimerId = setTimeout(disarmResetButton, 4000);
+                return;
+            }
+
+            disarmResetButton();
+            userDataKeys.forEach(name => removeStorage(getUserKey(name)));
+
+            // 예시 데이터로 되돌리는 게 아니라 정말 비운다: 운동 기록 / 운동일지 / GPS 기록은 0건,
+            // 신체 기록은 오늘 값 1건만 남기고, 목표는 기본값으로 다시 만든다.
+            workoutState = {};
+            workoutLogs = [];
+            nextRoutineId = 1;
+            exerciseLogs = {};
+            gpsLogs = [];
+            nextExerciseLogId = 1;
+            bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
+            bodyRecords = [];
+            saveBodyRecord(bodyProfile, computeBodyMetrics(bodyProfile));
+            dietGoal = buildMockDietGoal();
+
+            await Promise.all([
+                persistWorkoutState(),
+                saveStoredValue('exerciseLogs', exerciseLogs),
+                saveStoredValue('gpsLogs', gpsLogs),
+                saveStoredValue('bodyProfile', bodyProfile),
+                saveStoredValue('bodyRecords', bodyRecords),
+                saveStoredValue('dietGoal', dietGoal)
+            ]);
+
+            applyBodyProfileToInputs();
+            await calculateBodyMetrics(false);
+            isWorkoutLoaded = true;
+            isWorkoutCustom = true;
+            refreshAllViews();
+            fillGoalForm();
+            renderBmrAnalysis();
+            showToast('내 기록을 모두 삭제했어요.');
+        }
+
+        /* ==========================================
+           칼로리 계산기 / 기초대사량 분석 (메뉴 29, 30번)
+           ========================================== */
+        function initCalculatorOptions() {
+            const activitySelect = document.getElementById('calcActivity');
+            activityMets.forEach(activity => {
+                const optionElement = document.createElement('option');
+                optionElement.value = activity.key;
+                optionElement.textContent = `${activity.label} (MET ${activity.met})`;
+                activitySelect.appendChild(optionElement);
+            });
+
+            const levelSelect = document.getElementById('bmrActivity');
+            activityLevels.forEach(level => {
+                const optionElement = document.createElement('option');
+                optionElement.value = level.key;
+                optionElement.textContent = `${level.label} (x${level.factor})`;
+                levelSelect.appendChild(optionElement);
+            });
+            levelSelect.value = 'light';
+        }
+
+        function prefillCalorieWeight() {
+            const weightInput = document.getElementById('calcWeight');
+            if (!weightInput.value) weightInput.value = bodyProfile.weight;
+            renderCalorieResult();
+        }
+
+        function renderCalorieResult() {
+            const minutes = parseFloat(document.getElementById('calcMinutes').value);
+            const weight = parseFloat(document.getElementById('calcWeight').value);
+            const activity = activityMets.find(item => item.key === document.getElementById('calcActivity').value) || activityMets[0];
+
+            const kcalElement = document.getElementById('calcResultKcal');
+            const foodElement = document.getElementById('calcResultFood');
+
+            if (!(minutes > 0 && minutes <= 600) || !(weight >= 20 && weight <= 300)) {
+                kcalElement.textContent = '-';
+                foodElement.textContent = '운동 시간(1~600분)과 체중(20~300kg)을 입력해 주세요.';
+                return;
+            }
+
+            const kcal = Math.round(activity.met * weight * (minutes / 60));
+            kcalElement.textContent = `${kcal.toLocaleString()} kcal`;
+            foodElement.textContent = `공기밥(300kcal) 약 ${(kcal / 300).toFixed(1)}공기 분량이에요.`;
+        }
+
+        function renderBmrAnalysis() {
+            const metrics = computeBodyMetrics(bodyProfile);
+            const level = activityLevels.find(item => item.key === document.getElementById('bmrActivity').value) || activityLevels[1];
+            const goal = goalAdjustments[selectedGoalKey];
+
+            const bmr = Math.round(metrics.bmr);
+            const tdee = Math.round(metrics.bmr * level.factor);
+            const targetIntake = tdee + goal.kcal;
+            const recommended = Math.max(targetIntake, bmr);
+
+            const setText = (elementId, text) => {
+                document.getElementById(elementId).textContent = text;
+            };
+
+            setText('bmrBasisText', `${bodyProfile.gender === 'male' ? '남성' : '여성'} ${bodyProfile.age}세, ${bodyProfile.height}cm, ${bodyProfile.weight}kg 기준`);
+            setText('bmrValue', `${bmr.toLocaleString()} kcal`);
+            setText('tdeeValue', `${tdee.toLocaleString()} kcal`);
+            setText('intakeValue', `${recommended.toLocaleString()} kcal`);
+            setText('intakeNote', targetIntake < bmr
+                ? '기초대사량보다 적게 먹으면 건강을 해칠 수 있어, 기초대사량을 최소선으로 안내해요.'
+                : `${goal.label} 목표 기준 하루 권장 섭취량이에요.`);
+
+            document.getElementById('bmrGoalButtons').querySelectorAll('button').forEach(goalButton => {
+                goalButton.setAttribute('aria-pressed', String(goalButton.dataset.goal === selectedGoalKey));
+            });
+        }
+
+        /* ==========================================
+           v2.3 이벤트 연결
+           ========================================== */
+        function bindFeatureEvents() {
+            // 날짜 상세 모달: 패널 전환 / 운동일지
+            document.getElementById('detailTabRoutine').addEventListener('click', () => setDetailPanel('routine'));
+            document.getElementById('detailTabLog').addEventListener('click', () => setDetailPanel('log'));
+            document.getElementById('exerciseLogForm').addEventListener('submit', addExerciseLog);
+            document.getElementById('saveExerciseLogButton').addEventListener('click', saveExerciseLogs);
+
+            // 오늘의 운동 선택
+            document.querySelectorAll('.type-chip').forEach(chip => {
+                chip.addEventListener('click', () => toggleRoutineType(chip.dataset.routineType));
+            });
+            document.getElementById('confirmSelectionButton').addEventListener('click', confirmRoutineSelection);
+
+            // 성공 화면
+            document.getElementById('successCloseButton').addEventListener('click', closeSuccessModal);
+            document.getElementById('successCalendarButton').addEventListener('click', () => {
+                closeSuccessModal();
+                switchTab('tab-calendar');
+            });
+
+            // 런닝 종료 및 저장
+            document.getElementById('finishRunButton').addEventListener('click', finishRunningAndSave);
+
+            // 마이페이지
+            document.getElementById('goalForm').addEventListener('submit', saveDietGoal);
+            document.getElementById('darkModeSwitch').addEventListener('click', toggleDarkMode);
+            document.getElementById('logoutButton').addEventListener('click', logout);
+            document.getElementById('resetDataButton').addEventListener('click', handleResetData);
+
+            // 계산기
+            ['calcActivity', 'calcMinutes', 'calcWeight'].forEach(elementId => {
+                document.getElementById(elementId).addEventListener('input', renderCalorieResult);
+            });
+            document.getElementById('bmrActivity').addEventListener('change', renderBmrAnalysis);
+            document.getElementById('bmrGoalButtons').addEventListener('click', (event) => {
+                const goalButton = event.target.closest('button[data-goal]');
+                if (!goalButton) return;
+
+                selectedGoalKey = goalButton.dataset.goal;
+                renderBmrAnalysis();
             });
         }
 
@@ -1876,59 +3553,7 @@
         /* ==========================================
            6. BMI & Body Data Calculator
            ========================================== */
-        function setGender(gender) {
-            selectedGender = gender;
-            const maleBtn = document.getElementById('genderMale');
-            const femaleBtn = document.getElementById('genderFemale');
 
-            if (gender === 'male') {
-                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300";
-                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
-            } else {
-                femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300";
-                maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
-            }
-        }
-
-        function calculateBodyMetrics() {
-            const age = parseFloat(document.getElementById('inputAge').value) || 28;
-            const weight = parseFloat(document.getElementById('inputWeight').value) || 72.5;
-            const height = parseFloat(document.getElementById('inputHeight').value) || 175;
-
-            const heightM = height / 100;
-            const bmi = weight / (heightM * heightM);
-
-            let bmr = (10 * weight) + (6.25 * height) - (5 * age);
-            if (selectedGender === 'male') bmr += 5;
-            else bmr -= 161;
-
-            let badgeText = "정상";
-            let needleAngle = 25;
-
-            if (bmi < 18.5) {
-                badgeText = "저체중";
-                needleAngle = 70;
-            } else if (bmi >= 18.5 && bmi < 23) {
-                badgeText = "정상";
-                needleAngle = 25;
-            } else if (bmi >= 23 && bmi < 25) {
-                badgeText = "과체중";
-                needleAngle = -25;
-            } else {
-                badgeText = "비만";
-                needleAngle = -70;
-            }
-
-            document.getElementById('resBmiText').textContent = `${bmi.toFixed(1)} (${badgeText})`;
-            document.getElementById('resBmrText').textContent = `${Math.round(bmr).toLocaleString()} kcal`;
-
-            const needle = document.getElementById('bmiGaugeNeedle');
-            if (needle) {
-                needle.style.transform = `rotate(${needleAngle}deg)`;
-            }
-
-            showToast('신체 데이터 및 BMI 수치가 업데이트 되었습니다.');
-        }
 
         /* ==========================================
            7. Toast Notification Engine
@@ -1947,5 +3572,68 @@
             }, 2400);
         }
     </script>
+    <script>
+    const API_BASE_URL = 'http://localhost:3000/api';
+
+    // 1. 페이지 로드 시 백엔드에서 오늘 루틴 목록 조회
+    async function loadTodayRoutines() {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/today?userId=testuser`);
+        const data = await response.json();
+        if (data.success) {
+            console.log('DB에서 조회된 루틴 데이터:', data);
+        }
+        } catch (error) {
+        console.error('오늘 루틴 불러오기 실패:', error);
+        }
+    }
+
+    // 2. 운동 루틴 체크박스 클릭 시 DB 상태 업데이트
+    async function updateRoutineCheck(selectionId, isChecked) {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, isChecked })
+        });
+        const data = await response.json();
+        if (data.success) {
+            console.log('DB 업데이트 성공!');
+        }
+        } catch (error) {
+        console.error('상태 변경 저장 실패:', error);
+        }
+    }
+
+    // 3. GPS 런닝 종료 시 기록 저장
+    async function saveGpsRecord(selectionId, distance, calories, routePath) {
+        try {
+        const response = await fetch(`${API_BASE_URL}/workout/gps`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, distance, calories, routePath })
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('GPS 런닝 기록이 MySQL DB에 저장되었습니다!');
+        }
+        } catch (error) {
+        console.error('GPS 저장 실패:', error);
+        }
+    }
+
+    // 화면 로드 시 실행
+    window.addEventListener('DOMContentLoaded', loadTodayRoutines);
+</script>
+<script>
+    // PWA: 서비스워커 등록 (https 또는 localhost에서만 동작)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('sw.js').catch(function (error) {
+                console.warn('서비스워커 등록 실패:', error);
+            });
+        });
+    }
+</script>
 </body>
 </html>
