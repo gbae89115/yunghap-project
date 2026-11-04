@@ -2,4 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- 루틴노트 브랜드색 (tailwind-config.js 의 brand 와 같게) -->
+    <color name="brand_600">#FF2563EB</color>
+    <color name="slate_900">#FF0F172A</color>
 </resources>

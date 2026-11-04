@@ -2,7 +2,14 @@
    담당: 장정민 (UI/UX)
    (index.html에서 분리 — 내용은 그대로) */
 
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+/* Pretendard 글꼴 (가변 글꼴 1개로 모든 굵기 사용, 앱 안 vendor/ 폴더) */
+@font-face {
+    font-family: 'Pretendard';
+    font-style: normal;
+    font-weight: 45 920;
+    font-display: swap;
+    src: url('../vendor/pretendard/PretendardVariable.woff2') format('woff2');
+}
 
 body {
     font-family: 'Pretendard', sans-serif;
