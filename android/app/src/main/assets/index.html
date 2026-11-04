@@ -29,12 +29,26 @@
 
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- 앱(웹뷰) 안에서 실행 중이면 <html>에 in-app 표시를 붙인다 -->
+    <!-- 앱(웹뷰) 안에서 실행 중이면 <html>에 in-app 표시를 붙이고,
+     다크 모드가 바뀔 때마다 앱에 알려서 상태바 색을 맞춘다 -->
     <script>
         if (location.hostname === 'appassets.androidplatform.net') {
             document.documentElement.classList.add('in-app');
+
+            if (window.RoutineNoteApp) {
+                const syncBarTheme = () => {
+                    const isDark = document.documentElement.classList.contains('dark');
+                    window.RoutineNoteApp.setDarkMode(isDark);
+                };
+                new MutationObserver(syncBarTheme).observe(document.documentElement, {
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
+                document.addEventListener('DOMContentLoaded', syncBarTheme);
+            }
         }
     </script>
+
 
 </head>
 <body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
