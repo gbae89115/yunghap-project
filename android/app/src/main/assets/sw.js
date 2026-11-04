@@ -1,8 +1,8 @@
 // RoutineNote 서비스워커: 한 번 열어본 화면은 오프라인에서도 열리게 캐시한다.
-const cacheName = 'routinenote-v2';
+const cacheName = 'routinenote-v3';
 const appShell = [
     './', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png',
-    './css/style.css', './js/tailwind-config.js', './js/app.js', './js/kakao-map.js', './js/api.js'
+    './css/style.css', './js/tailwind-config.js', './js/app.js', './js/kakao-map.js', './js/api.js', './js/onboarding.js'
 ];
 
 self.addEventListener('install', (event) => {

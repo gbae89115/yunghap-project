@@ -967,6 +967,9 @@ async function beginSession(account, isFreshLogin) {
     writeStorage('session', { userId: account.userId });
     hideLoginScreen();
 
+    // [초기값 설정] 저장된 신체 정보가 없는 첫 로그인이면 성별·나이·키·몸무게부터 받는다 (js/onboarding.js)
+    if (await needsOnboarding()) await runOnboarding();
+
     await loadUserData();
     applyBodyProfileToInputs();
     await calculateBodyMetrics(false);
