@@ -850,6 +850,114 @@
             </div>
         </div>
 
+        <!-- 초기값 설정 화면 (회원가입 후 처음 한 번, js/onboarding.js) -->
+        <div id="onboardingScreen" inert role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" class="hidden absolute inset-0 z-[60] bg-gradient-to-b from-brand-600 to-blue-400 dark:from-slate-950 dark:to-slate-800 overflow-y-auto no-scrollbar">
+            <form id="onboardingForm" class="min-h-full flex flex-col px-7 py-10 text-white" novalidate>
+                <!-- 진행 표시 -->
+                <div>
+                    <div class="flex items-center justify-between text-xs font-bold text-blue-100">
+                        <span>초기값 설정</span>
+                        <span id="onboardingStepLabel">1 / 3</span>
+                    </div>
+                    <div class="mt-2 h-1.5 rounded-full bg-white/25 overflow-hidden">
+                        <div id="onboardingProgress" class="h-full w-1/3 rounded-full bg-white transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- 1단계: 이름 · 성별 · 나이 -->
+                <section id="onboardingStep1" class="mt-10">
+                    <h2 id="onboardingTitle" class="text-2xl font-black leading-snug">반가워요!<br>먼저 기본 정보를 알려 주세요</h2>
+                    <p class="mt-2 text-xs text-blue-100">기초대사량과 BMI를 계산할 때 사용해요.</p>
+
+                    <label for="onboardingName" class="block mt-8 mb-2 text-xs font-bold text-blue-100">이름</label>
+                    <div class="onboarding-field">
+                        <input type="text" id="onboardingName" maxlength="10" autocomplete="nickname" placeholder="예: 홍길동">
+                    </div>
+
+                    <p class="mt-6 mb-2 text-xs font-bold text-blue-100">성별</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" id="onboardingMale" aria-pressed="false" class="onboarding-choice"><i class="fa-solid fa-mars" aria-hidden="true"></i> 남성</button>
+                        <button type="button" id="onboardingFemale" aria-pressed="false" class="onboarding-choice"><i class="fa-solid fa-venus" aria-hidden="true"></i> 여성</button>
+                    </div>
+
+                    <label for="onboardingAge" class="block mt-6 mb-2 text-xs font-bold text-blue-100">나이</label>
+                    <div class="onboarding-field">
+                        <input type="number" id="onboardingAge" inputmode="numeric" min="10" max="100" placeholder="예: 23">
+                        <span>세</span>
+                    </div>
+                </section>
+
+                <!-- 2단계: 키 · 몸무게 -->
+                <section id="onboardingStep2" class="mt-10 hidden">
+                    <h2 class="text-2xl font-black leading-snug">지금 몸 상태를<br>기록해 둘게요</h2>
+                    <p class="mt-2 text-xs text-blue-100">첫 체중 기록으로 저장돼요. 나중에 다이어트/BMI 탭에서 바꿀 수 있어요.</p>
+
+                    <label for="onboardingHeight" class="block mt-8 mb-2 text-xs font-bold text-blue-100">키</label>
+                    <div class="onboarding-field">
+                        <input type="number" id="onboardingHeight" inputmode="decimal" min="100" max="250" step="0.1" placeholder="예: 170">
+                        <span>cm</span>
+                    </div>
+
+                    <label for="onboardingWeight" class="block mt-6 mb-2 text-xs font-bold text-blue-100">몸무게</label>
+                    <div class="onboarding-field">
+                        <input type="number" id="onboardingWeight" inputmode="decimal" min="20" max="300" step="0.1" placeholder="예: 65.5">
+                        <span>kg</span>
+                    </div>
+                </section>
+
+                <!-- 3단계: BMI 결과 -->
+                <section id="onboardingStep3" class="mt-10 hidden" aria-live="polite">
+                    <h2 class="text-2xl font-black leading-snug"><span id="onboardingResultName">회원</span> 님의<br>BMI 결과예요</h2>
+                    <p class="mt-2 text-xs text-blue-100">입력한 키와 몸무게로 계산했어요.</p>
+
+                    <div id="onboardingResultCard" class="onboarding-result" data-bmi-level="normal">
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-xs font-bold text-slate-500">BMI</p>
+                                <p id="onboardingBmiValue" class="onboarding-bmi-value">0.0</p>
+                            </div>
+                            <span id="onboardingBmiLabel" class="onboarding-bmi-badge">정상</span>
+                        </div>
+
+                        <!-- 저체중 · 정상 · 과체중 · 비만 막대 (BMI 15~30 구간, flex 값 = 구간 길이) -->
+                        <div class="onboarding-bmi-scale" aria-hidden="true">
+                            <span class="onboarding-bmi-segment level-under" style="flex: 3.5"></span>
+                            <span class="onboarding-bmi-segment level-normal" style="flex: 4.5"></span>
+                            <span class="onboarding-bmi-segment level-over" style="flex: 2"></span>
+                            <span class="onboarding-bmi-segment level-obese" style="flex: 5"></span>
+                            <span id="onboardingBmiMarker" class="onboarding-bmi-marker" style="left: 50%"></span>
+                        </div>
+                        <div class="onboarding-bmi-labels" aria-hidden="true">
+                            <span style="flex: 3.5">저체중</span>
+                            <span style="flex: 4.5">정상</span>
+                            <span style="flex: 2">과체중</span>
+                            <span style="flex: 5">비만</span>
+                        </div>
+                        <div class="onboarding-bmi-ticks" aria-hidden="true">
+                            <span style="left: 23.33%">18.5</span>
+                            <span style="left: 53.33%">23</span>
+                            <span style="left: 66.67%">25</span>
+                        </div>
+
+                        <p id="onboardingBmiTip" class="mt-6 text-sm font-bold text-slate-700 leading-relaxed"></p>
+
+                        <div class="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">하루 기초대사량</span>
+                            <span><strong id="onboardingBmrValue" class="text-base font-black text-slate-800">0</strong> <span class="font-bold text-slate-500">kcal</span></span>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-[10px] text-blue-100/80">BMI 기준: 18.5 미만 저체중 · 23 미만 정상 · 25 미만 과체중 · 25 이상 비만</p>
+                </section>
+
+                <p id="onboardingMessage" role="alert" class="mt-4 min-h-[16px] text-xs font-bold text-amber-200"></p>
+
+                <div class="mt-auto pt-8 flex gap-3">
+                    <button type="button" id="onboardingBack" class="invisible flex-1 py-3 rounded-xl text-sm font-bold bg-white/15 hover:bg-white/25 transition">이전</button>
+                    <button type="submit" id="onboardingNext" class="flex-[2] py-3 rounded-xl text-sm font-black bg-white text-brand-600 shadow-lg hover:bg-blue-50 transition disabled:opacity-60">다음</button>
+                </div>
+            </form>
+        </div>
+
         <!-- Toast Notification Engine UI -->
         <div id="toast" class="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
             <i class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600" id="toastIcon"></i>
@@ -858,10 +966,11 @@
 
     </div>
 
-    <!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js (모두 같은 전역 공간을 공유) -->
+    <!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js → onboarding.js (모두 같은 전역 공간을 공유) -->
     <script src="js/app.js"></script>
     <script src="js/kakao-map.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/onboarding.js"></script>
 <script>
     // PWA: 서비스워커 등록 (https 또는 localhost에서만 동작)
     if ('serviceWorker' in navigator) {

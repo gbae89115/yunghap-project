@@ -299,3 +299,169 @@ body {
     border-radius: 0;
     box-shadow: none;
 }
+
+/* ===== 초기값 설정(온보딩) 화면 ===== */
+/* 성별 선택 버튼: 선택 여부는 aria-pressed 로 표시한다 (js/onboarding.js) */
+.onboarding-choice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 0;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+.onboarding-choice:active {
+    transform: scale(0.97);
+}
+.onboarding-choice[aria-pressed="true"] {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}
+
+/* 숫자 입력칸 + 단위(세, cm, kg) */
+.onboarding-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9);
+}
+.onboarding-field:focus-within {
+    box-shadow: 0 0 0 2px #ffffff;
+}
+.onboarding-field input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 800;
+}
+.onboarding-field input::placeholder {
+    color: #94a3b8;
+    font-weight: 600;
+}
+.onboarding-field span {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+}
+/* 숫자 입력칸의 위아래 화살표 숨기기 */
+.onboarding-field input::-webkit-outer-spin-button,
+.onboarding-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.onboarding-field input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* BMI 결과 카드 (3단계) — data-bmi-level: under / normal / over / obese */
+.onboarding-result {
+    --bmi-color: #10b981;
+    margin-top: 28px;
+    padding: 20px;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #1e293b;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+.onboarding-result[data-bmi-level="under"] { --bmi-color: #0ea5e9; }
+.onboarding-result[data-bmi-level="normal"] { --bmi-color: #10b981; }
+.onboarding-result[data-bmi-level="over"] { --bmi-color: #f59e0b; }
+.onboarding-result[data-bmi-level="obese"] { --bmi-color: #f43f5e; }
+
+.onboarding-bmi-value {
+    margin-top: 2px;
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--bmi-color);
+}
+.onboarding-bmi-badge {
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background: var(--bmi-color);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+/* 저체중·정상·과체중·비만 막대와 현재 위치 표시 */
+.onboarding-bmi-scale {
+    position: relative;
+    display: flex;
+    gap: 3px;
+    height: 10px;
+    margin-top: 24px;
+}
+.onboarding-bmi-segment {
+    height: 100%;
+    border-radius: 9999px;
+    opacity: 0.35;
+}
+.onboarding-bmi-segment.level-under { background: #0ea5e9; }
+.onboarding-bmi-segment.level-normal { background: #10b981; }
+.onboarding-bmi-segment.level-over { background: #f59e0b; }
+.onboarding-bmi-segment.level-obese { background: #f43f5e; }
+.onboarding-result[data-bmi-level="under"] .level-under,
+.onboarding-result[data-bmi-level="normal"] .level-normal,
+.onboarding-result[data-bmi-level="over"] .level-over,
+.onboarding-result[data-bmi-level="obese"] .level-obese {
+    opacity: 1;
+}
+.onboarding-bmi-marker {
+    position: absolute;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    border: 4px solid #ffffff;
+    background: var(--bmi-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transform: translate(-50%, -50%);
+    transition: left 0.6s ease;
+}
+.onboarding-bmi-labels {
+    display: flex;
+    gap: 3px;
+    margin-top: 8px;
+}
+.onboarding-bmi-labels span {
+    text-align: center;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 800;
+    color: #94a3b8;
+}
+.onboarding-result[data-bmi-level="under"] .onboarding-bmi-labels span:nth-child(1),
+.onboarding-result[data-bmi-level="normal"] .onboarding-bmi-labels span:nth-child(2),
+.onboarding-result[data-bmi-level="over"] .onboarding-bmi-labels span:nth-child(3),
+.onboarding-result[data-bmi-level="obese"] .onboarding-bmi-labels span:nth-child(4) {
+    color: var(--bmi-color);
+}
+.onboarding-bmi-ticks {
+    position: relative;
+    height: 12px;
+    margin-top: 2px;
+}
+.onboarding-bmi-ticks span {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    color: #cbd5e1;
+}
