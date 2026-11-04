@@ -2,7 +2,10 @@ package com.yunghap.routinenote;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
 import android.webkit.GeolocationPermissions;
 import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
@@ -12,12 +15,15 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,15 +38,38 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 화면 전체를 웹뷰 하나로 채운다
-        webView = new WebView(this);
-        setContentView(webView);
+        // 1. 화면 구성: 브랜드색 바탕 위에 웹뷰를 올린다
+        //    - 위쪽 상태바 영역: 헤더와 같은 파란색(brand-600) + 흰 아이콘
+        //    - 아래쪽 내비게이션바 영역: 하단 탭과 같은 흰색
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.parseColor("#2563eb"));
 
-        // 상태바·내비게이션바에 화면이 가려지지 않도록 여백을 준다
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
+        webView = new WebView(this);
+        FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        root.addView(webView, webParams);
+
+        View bottomBarBackground = new View(this);
+        bottomBarBackground.setBackgroundColor(Color.WHITE);
+        FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, 0, Gravity.BOTTOM);
+        root.addView(bottomBarBackground, bottomParams);
+
+        setContentView(root);
+
+        WindowInsetsControllerCompat barController = WindowCompat.getInsetsController(getWindow(), root);
+        barController.setAppearanceLightStatusBars(false);     // 상태바 아이콘: 흰색
+        barController.setAppearanceLightNavigationBars(true);  // 내비게이션바 아이콘: 어두운색
+
+        // 상태바·내비게이션바를 뺀 나머지 영역에만 웹뷰를 둔다
+        // (웹뷰에 padding을 주면 웹 화면 높이가 어긋나서 margin으로 자리를 비운다)
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
+            webParams.setMargins(bars.left, bars.top, bars.right, bars.bottom);
+            webView.setLayoutParams(webParams);
+            bottomParams.height = bars.bottom;
+            bottomBarBackground.setLayoutParams(bottomParams);
+            return WindowInsetsCompat.CONSUMED;
         });
 
         // 2. assets 폴더 파일을 https://appassets.androidplatform.net/assets/... 로 제공하는 도구

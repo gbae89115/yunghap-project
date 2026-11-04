@@ -28,6 +28,14 @@
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=7c63c6bf42ffbd04655016b4ff4016d1&libraries=services"></script>
 
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- 앱(웹뷰) 안에서 실행 중이면 <html>에 in-app 표시를 붙인다 -->
+    <script>
+        if (location.hostname === 'appassets.androidplatform.net') {
+            document.documentElement.classList.add('in-app');
+        }
+    </script>
+
 </head>
 <body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
 
@@ -35,7 +43,7 @@
     <div class="mobile-wrapper bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
         
         <!-- Top Status Bar -->
-        <div class="bg-brand-600 dark:bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-semibold z-30 transition-colors">
+        <div class="fake-statusbar bg-brand-600 dark:bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-semibold z-30 transition-colors">
             <span id="statusBarTime">11:55</span>
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-signal text-[10px]"></i>
