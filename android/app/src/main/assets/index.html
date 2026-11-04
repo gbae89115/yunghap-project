@@ -111,18 +111,18 @@
                             <h2 class="text-xl font-bold mt-1.5" id="todayBannerDate">2026년 10월 7일 (수)</h2>
                         </div>
                         <div class="text-right">
-                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">66%</span>
+                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">0%</span>
                         </div>
                     </div>
 
                     <!-- Progress Bar -->
                     <div class="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 backdrop-blur-md">
-                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 66%;"></div>
+                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 0%;"></div>
                     </div>
 
                     <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
-                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
-                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">340</span> kcal 소모</span>
+                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>0개 중 0개 완료</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">0</span> kcal 소모</span>
                     </div>
                 </div>
 
@@ -199,20 +199,20 @@
                     <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
-                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">5.2</span><span class="metric-unit">km</span></div>
+                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">0.0</span><span class="metric-unit">km</span></div>
                         </div>
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
-                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:28:40</span></div>
+                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:00:00</span></div>
                         </div>
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
-                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">415</span><span class="metric-unit">kcal</span></div>
+                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">0</span><span class="metric-unit">kcal</span></div>
                         </div>
                     </div>
 
                     <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
-                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">5'27"</strong> /km</div>
+                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">-</strong> /km</div>
                         <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
                     </div>
                 </div>
@@ -401,11 +401,11 @@
                     <div class="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 text-slate-700 dark:text-slate-200">
                         <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">현재 계산된 BMI 수치:</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.7 (정상)</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">-</span>
                         </div>
                         <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">기초대사량 (BMR):</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">1,695 kcal</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">-</span>
                         </div>
                         <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">현재 달성도:</span>
