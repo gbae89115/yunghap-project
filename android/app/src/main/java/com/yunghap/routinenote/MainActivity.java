@@ -2,8 +2,12 @@ package com.yunghap.routinenote;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
 import android.webkit.WebChromeClient;
@@ -12,12 +16,15 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
 
 public class MainActivity extends AppCompatActivity {
@@ -25,22 +32,49 @@ public class MainActivity extends AppCompatActivity {
     // assets 폴더의 index.html을 https 주소처럼 연다 (카카오 지도는 http/https 주소에서만 동작)
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
+    // 상태바·내비게이션바 바탕색 (style.css / tailwind 색상과 맞춤)
+    private static final int COLOR_BRAND_600 = Color.parseColor("#2563eb"); // 라이트 모드 헤더
+    private static final int COLOR_SLATE_900 = Color.parseColor("#0f172a"); // 다크 모드 헤더·하단 탭
+
     private WebView webView;
+    private FrameLayout root;
+    private View bottomBarBackground;
+    private WindowInsetsControllerCompat barController;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 화면 전체를 웹뷰 하나로 채운다
-        webView = new WebView(this);
-        setContentView(webView);
+        // 1. 화면 구성: 브랜드색 바탕 위에 웹뷰를 올린다
+        //    - 위쪽 상태바 영역: 헤더와 같은 파란색(brand-600) + 흰 아이콘
+        //    - 아래쪽 내비게이션바 영역: 하단 탭과 같은 흰색
+        root = new FrameLayout(this);
 
-        // 상태바·내비게이션바에 화면이 가려지지 않도록 여백을 준다
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
+        webView = new WebView(this);
+        FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        root.addView(webView, webParams);
+
+        bottomBarBackground = new View(this);
+        FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, 0, Gravity.BOTTOM);
+        root.addView(bottomBarBackground, bottomParams);
+
+        setContentView(root);
+
+        barController = WindowCompat.getInsetsController(getWindow(), root);
+        applyBarTheme(false); // 처음에는 라이트 모드 색으로 시작
+
+        // 상태바·내비게이션바를 뺀 나머지 영역에만 웹뷰를 둔다
+        // (웹뷰에 padding을 주면 웹 화면 높이가 어긋나서 margin으로 자리를 비운다)
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
+            webParams.setMargins(bars.left, bars.top, bars.right, bars.bottom);
+            webView.setLayoutParams(webParams);
+            bottomParams.height = bars.bottom;
+            bottomBarBackground.setLayoutParams(bottomParams);
+            return WindowInsetsCompat.CONSUMED;
         });
 
         // 2. assets 폴더 파일을 https://appassets.androidplatform.net/assets/... 로 제공하는 도구
@@ -78,6 +112,14 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 웹(index.html)에서 다크 모드가 바뀌면 RoutineNoteApp.setDarkMode(true/false)로 알려 준다
+        webView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void setDarkMode(boolean isDark) {
+                runOnUiThread(() -> applyBarTheme(isDark));
+            }
+        }, "RoutineNoteApp");
+
         // 4. 휴대폰 위치 권한 요청 (처음 실행할 때 팝업이 뜬다)
         requestPermissions(new String[]{
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -98,5 +140,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    // 상태바·내비게이션바 색을 웹 화면의 라이트/다크 모드에 맞춘다
+    private void applyBarTheme(boolean isDark) {
+        root.setBackgroundColor(isDark ? COLOR_SLATE_900 : COLOR_BRAND_600);
+        bottomBarBackground.setBackgroundColor(isDark ? COLOR_SLATE_900 : Color.WHITE);
+        barController.setAppearanceLightStatusBars(false);       // 상태바 아이콘: 항상 흰색
+        barController.setAppearanceLightNavigationBars(!isDark); // 내비게이션바 아이콘: 라이트=어둡게, 다크=밝게
     }
 }
