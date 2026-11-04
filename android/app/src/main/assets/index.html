@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ko" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="RoutineNote">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>RoutineNote V2.0 - 스마트 루틴 & GPS 노트</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/tailwind-config.js"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- FullCalendar: 수업 규칙에 따라 버전을 @6.1.8 로 정확히 고정 -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+    <!-- Kakao Map API SDK (User Provided Key)
+         libraries=services : 좌표 -> 주소 변환(Geocoder)에 필요. 이 값이 없으면 주소 뱃지가 갱신되지 않는다.
+         https: 를 명시해야 http/https 어느 쪽 페이지에서도 막히지 않는다. -->
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=7c63c6bf42ffbd04655016b4ff4016d1&libraries=services"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="flex items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-950">
+
+    <!-- Mobile App Container -->
+    <div class="mobile-wrapper bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+        
+        <!-- Top Status Bar -->
+        <div class="bg-brand-600 dark:bg-slate-950 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs font-semibold z-30 transition-colors">
+            <span id="statusBarTime">11:55</span>
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-signal text-[10px]"></i>
+                <i class="fa-solid fa-wifi text-[10px]"></i>
+                <i class="fa-solid fa-battery-full text-xs"></i>
+            </div>
+        </div>
+
+        <!-- Main Header (와이어프레임 20번: 메뉴 / 로고 / 마이페이지) -->
+        <header id="mainHeader" class="bg-brand-600 dark:bg-slate-900 text-white px-3 py-3 shadow-md flex justify-between items-center z-20 border-b border-white/10">
+            <div class="flex items-center gap-1.5">
+                <button type="button" onclick="switchTab('tab-menu')" aria-label="메뉴 열기" class="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center transition">
+                    <i class="fa-solid fa-bars text-base" aria-hidden="true"></i>
+                </button>
+                <div class="flex items-center space-x-2.5">
+                    <button type="button" id="homeLogoButton" onclick="goHome()" aria-label="메인 화면으로 이동" class="w-9 h-9 rounded-xl bg-white text-brand-600 dark:bg-brand-500 dark:text-white flex items-center justify-center font-black text-xl shadow-md hover:scale-105 active:scale-95 transition">R</button>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h1 class="text-lg font-black tracking-tight leading-none">RoutineNote</h1>
+                            <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.2</span>
+                        </div>
+                        <p class="text-[10px] text-blue-100 dark:text-slate-400 font-medium mt-0.5">스마트 루틴 & GPS 지도 노트</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Controls: Dark Mode Toggle & 마이페이지 -->
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="toggleDarkMode()" aria-label="다크 모드 전환" class="w-8 h-8 rounded-full bg-white/10 dark:bg-slate-800 hover:bg-white/20 flex items-center justify-center transition text-amber-300 dark:text-amber-400">
+                    <i class="fa-solid fa-sun text-sm dark:hidden" aria-hidden="true"></i>
+                    <i class="fa-solid fa-moon text-sm hidden dark:inline" aria-hidden="true"></i>
+                </button>
+                <button type="button" id="profileButton" aria-label="마이페이지" class="w-8 h-8 rounded-full bg-white/10 dark:bg-slate-800 hover:bg-white/20 flex items-center justify-center transition">
+                    <i class="fa-regular fa-user text-sm" aria-hidden="true"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Screen Body -->
+        <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20 bg-slate-100 dark:bg-slate-900/90" id="mainScrollBody">
+
+            <!-- TAB 1: 오늘의 루틴 (Today's Routine & Checklist) -->
+            <section id="tab-today" class="tab-screen block p-4 space-y-4">
+                
+                <!-- Progress Header Banner -->
+                <div class="bg-gradient-to-br from-brand-600 via-blue-600 to-indigo-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-blue-500/10 border border-white/10 relative overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="text-[10px] bg-white/20 dark:bg-brand-500/30 px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">Today Routine</span>
+                            <h2 class="text-xl font-bold mt-1.5" id="todayBannerDate">2026년 10월 7일 (수)</h2>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">66%</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 backdrop-blur-md">
+                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 66%;"></div>
+                    </div>
+
+                    <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
+                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">340</span> kcal 소모</span>
+                    </div>
+                </div>
+
+                <!-- 오늘의 운동 선택 (와이어프레임 12~15번) -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-hand-pointer text-brand-500" aria-hidden="true"></i> 오늘의 운동 선택
+                        </h3>
+                        <span class="text-[10px] text-slate-400">여러 개 선택 가능</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="type-chip" data-routine-type="RUNNING" aria-pressed="false">
+                            <i class="fa-solid fa-person-running" aria-hidden="true"></i>런닝<small>GPS 지도</small>
+                        </button>
+                        <button type="button" class="type-chip" data-routine-type="WEIGHT" aria-pressed="false">
+                            <i class="fa-solid fa-dumbbell" aria-hidden="true"></i>웨이트<small>세트·중량</small>
+                        </button>
+                        <button type="button" class="type-chip" data-routine-type="REST" aria-pressed="false">
+                            <i class="fa-solid fa-bed" aria-hidden="true"></i>휴식<small>스트레칭</small>
+                        </button>
+                    </div>
+                    <button type="button" id="confirmSelectionButton" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">설정 완료 및 시작</button>
+                </div>
+
+                <!-- Today Workout Checklist Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-brand-500"></i> 오늘 루틴 체크리스트
+                        </h3>
+                        <button onclick="openDetailModal(getTodayKey())" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1">
+                            + 항목 수정/추가 <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+
+                    <div id="todayChecklistContainer" class="space-y-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Quick Routine Launcher -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="switchTab('tab-running')" class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-person-running"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-emerald-100 block">GPS 실시간</span>
+                            <span class="text-sm font-bold">런닝 시작하기</span>
+                        </div>
+                    </button>
+
+                    <button onclick="switchTab('tab-calendar')" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-2xl shadow-md text-left flex flex-col justify-between hover:opacity-95 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-base"><i class="fa-solid fa-calendar-days"></i></span>
+                            <i class="fa-solid fa-arrow-right text-xs opacity-70"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-indigo-100 block">월간 일지</span>
+                            <span class="text-sm font-bold">캘린더 전체보기</span>
+                        </div>
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- TAB 2: 런닝 지도 (Kakao Map GPS Tracker v2.0) -->
+            <section id="tab-running" class="tab-screen hidden p-4 space-y-4">
+                
+                <!-- Running Metrics Display -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+                    <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
+                        <div class="text-center px-1 min-w-0">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
+                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">5.2</span><span class="metric-unit">km</span></div>
+                        </div>
+                        <div class="text-center px-1 min-w-0">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
+                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:28:40</span></div>
+                        </div>
+                        <div class="text-center px-1 min-w-0">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
+                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">415</span><span class="metric-unit">kcal</span></div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
+                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">5'27"</strong> /km</div>
+                        <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
+                    </div>
+                </div>
+
+                <!-- Kakao Map Container -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">카카오맵 v2.0 GPS 실시간 트래커</h3>
+                        </div>
+                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-mono">Kakao API</span>
+                    </div>
+
+                    <!-- Kakao Map Div Container -->
+                    <div class="relative w-full h-72 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">
+                        <div id="kakaoMap" class="w-full h-full block"></div>
+                        
+                        <!-- Map Fallback Canvas (In case Kakao API key or domain security blocks rendering in iFrame) -->
+                        <canvas id="fallbackMapCanvas" class="hidden absolute inset-0 w-full h-full"></canvas>
+
+                        <!-- Map Controls Floating Widget -->
+                        <div class="absolute top-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 z-10">
+                            <i class="fa-solid fa-location-dot text-red-500" aria-hidden="true"></i> <span id="locationBadgeText">GPS 위치 탐색 중...</span>
+                        </div>
+
+                        <div class="absolute bottom-3 right-3 flex flex-col gap-2 z-10">
+                            <button onclick="recenterKakaoMap()" class="w-9 h-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-white active:scale-95 transition">
+                                <i class="fa-solid fa-crosshairs text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GPS Control Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button id="toggleRunBtn" onclick="toggleRunningSimulation()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-play" id="toggleRunIcon"></i> <span id="toggleRunText">트래킹 시작</span>
+                        </button>
+                        <button onclick="resetRunningData()" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-98">
+                            <i class="fa-solid fa-arrow-rotate-right"></i> 경로 초기화
+                        </button>
+                    </div>
+                    <button type="button" id="finishRunButton" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow-md flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> 런닝 종료 및 기록 저장
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- TAB 3: 캘린더 (FullCalendar 6.1.8 + 연속 달성 + 타이머/스톱워치) -->
+            <section id="tab-calendar" class="tab-screen hidden p-4 space-y-4">
+
+                <!-- 와이어프레임 21번: FullCalendar 월간 달력 -->
+                <div id="calendarCard" aria-busy="true" class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 transition-opacity">
+                    <div id="fullCalendar"></div>
+
+                    <div class="flex items-center justify-center space-x-4 pt-3 mt-2 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <span>루틴 완수</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                            <span>일부 완료</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                            <span>미완료</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 와이어프레임 22번: 연속 달성 날짜 -->
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700/40 px-4 py-3.5 text-center" aria-live="polite">
+                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        <span aria-hidden="true">🔥</span>
+                        연속 달성 날짜:
+                        <strong id="streakCount" class="text-3xl font-black text-amber-700 dark:text-amber-300 mx-0.5 align-middle tabular-nums">-</strong><span id="streakSuffix">일째 성공 중</span>
+                    </p>
+                </div>
+
+                <!-- 와이어프레임 23번: 타이머 / 스톱워치 바로가기 -->
+                <button type="button" id="timerOpenButton" class="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-brand-600 dark:border-brand-500 text-brand-600 dark:text-brand-400 bg-white dark:bg-slate-800 font-bold text-sm hover:bg-brand-50 dark:hover:bg-slate-700 transition">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i> 타이머 / 스톱워치
+                </button>
+
+                <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-2xl p-4 text-xs text-blue-900 dark:text-blue-200 flex items-start space-x-3">
+                    <i class="fa-solid fa-circle-info text-brand-500 text-base mt-0.5"></i>
+                    <div>
+                        <strong class="font-bold block mb-0.5">V2 캘린더 기능 안내</strong>
+                        날짜를 클릭하면 그날 수행한 운동 루틴을 확인하고, <strong>새로운 운동 항목을 직접 추가</strong>하거나 완료 상태를 변경할 수 있습니다.
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB 4: 다이어트 & BMI 분석 -->
+            <section id="tab-body" class="tab-screen hidden p-4 space-y-4">
+                
+                <!-- Body Data Calculator Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-weight-scale text-brand-500"></i> 신체 데이터 설정 및 계산
+                        </h3>
+                        <p class="text-xs text-slate-400">BMI 수치 및 일일 권장 기초대사량을 자동 산출합니다.</p>
+                    </div>
+
+                    <!-- Gender Button Group -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">성별 선택</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" id="genderMale" onclick="setGender('male')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300">
+                                <i class="fa-solid fa-mars"></i> 남성
+                            </button>
+                            <button type="button" id="genderFemale" onclick="setGender('female')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300">
+                                <i class="fa-solid fa-venus"></i> 여성
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Inputs Grid -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">나이 (세)</label>
+                            <input type="number" id="inputAge" value="28" min="10" max="100" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">몸무게 (kg)</label>
+                            <input type="number" id="inputWeight" value="72.5" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">키 (cm)</label>
+                            <input type="number" id="inputHeight" value="175" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="calculateBodyMetrics(true)" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> BMI & BMR 계산 업데이트
+                    </button>
+                </div>
+
+                <!-- Diet Period Comparison & SVG Chart Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-4">
+                    <div class="text-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-extrabold text-slate-800 dark:text-slate-100">다이어트 기간 비교</h3>
+                        <p id="dietPeriodText" class="text-xs text-slate-400">(최근 6개월 체중 변화 및 BMI 분석)</p>
+                    </div>
+
+                    <!-- Weight Change SVG Chart -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-chart-line text-brand-500"></i> 체중 변화 추이 (kg)
+                        </h4>
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                            <svg id="weightChartSvg" viewBox="0 0 300 110" class="w-full h-auto overflow-visible" role="img" aria-label="체중 변화 그래프"></svg>
+                        </div>
+                    </div>
+
+                    <!-- BMI Gauge Meter SVG -->
+                    <div class="pt-2">
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 text-center">BMI 수치 판정 게이지</h4>
+                        <div class="relative w-48 mx-auto">
+                            <svg viewBox="0 0 200 115" class="w-full">
+                                <path d="M 20 100 A 80 80 0 0 1 60 30.7" fill="none" stroke="#ef4444" stroke-width="18" />
+                                <path d="M 60 30.7 A 80 80 0 0 1 100 20" fill="none" stroke="#f59e0b" stroke-width="18" />
+                                <path d="M 100 20 A 80 80 0 0 1 140 30.7" fill="none" stroke="#10b981" stroke-width="18" />
+                                <path d="M 140 30.7 A 80 80 0 0 1 180 100" fill="none" stroke="#3b82f6" stroke-width="18" />
+
+                                <text x="35" y="85" font-size="7.5" font-weight="bold" fill="#ffffff">비만</text>
+                                <text x="70" y="45" font-size="7.5" font-weight="bold" fill="#ffffff">과체중</text>
+                                <text x="118" y="45" font-size="7.5" font-weight="bold" fill="#ffffff">정상</text>
+                                <text x="150" y="85" font-size="7.5" font-weight="bold" fill="#ffffff">저체중</text>
+
+                                <!-- Gauge Pointer Needle -->
+                                <g id="bmiGaugeNeedle" class="gauge-needle" style="transform: rotate(25deg);">
+                                    <polygon points="100,25 96,100 104,100" fill="#1e293b" class="dark:fill-slate-100" />
+                                    <circle cx="100" cy="100" r="7" fill="#1e293b" class="dark:fill-slate-100" />
+                                    <circle cx="100" cy="100" r="2.5" fill="#ffffff" />
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Calculated Result Numbers -->
+                    <div class="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 text-slate-700 dark:text-slate-200">
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">현재 계산된 BMI 수치:</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.7 (정상)</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">기초대사량 (BMR):</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">1,695 kcal</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">현재 달성도:</span>
+                            <span class="font-bold text-brand-600 dark:text-brand-400" id="dietAchieveText">-</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden" role="presentation">
+                            <div id="dietProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">체중 변화:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietChangeText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">현재 총 소모 칼로리:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBurnedText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">다이어트 전 체중:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeWeightText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">다이어트 전 BMI:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeBmiText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">목표 체중:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietTargetText">-</span>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="switchTab('tab-today')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">확인</button>
+                </div>
+
+            </section>
+
+            <!-- TAB 5: 메뉴 (App Settings & Menu) -->
+            <section id="tab-menu" class="tab-screen hidden p-4 space-y-4">
+                
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-1">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-1">RoutineNote 메뉴</h3>
+
+                    <button type="button" onclick="switchTab('tab-mypage')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-regular fa-user text-slate-500 w-4 text-center" aria-hidden="true"></i> 마이페이지
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-calculator text-blue-500 w-4 text-center" aria-hidden="true"></i> BMI 지수 확인
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-body')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-chart-pie text-emerald-500 w-4 text-center" aria-hidden="true"></i> 다이어트 기간 비교
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-calorie')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-fire-flame-curved text-orange-500 w-4 text-center" aria-hidden="true"></i> 칼로리 계산기
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-bmr')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-heart-pulse text-rose-500 w-4 text-center" aria-hidden="true"></i> 기초대사량 분석
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-running')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-map-location-dot text-indigo-500 w-4 text-center" aria-hidden="true"></i> 런닝 지도 (GPS)
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+
+                    <button type="button" onclick="switchTab('tab-calendar')" class="w-full py-3 px-3 flex justify-between items-center text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <i class="fa-solid fa-calendar-check text-purple-500 w-4 text-center" aria-hidden="true"></i> 월간 캘린더 전체보기
+                        </span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <!-- App Information Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-2 text-slate-500 dark:text-slate-400">
+                    <div class="flex justify-between">
+                        <span>앱 버전</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">v2.3 (로그인 · 마이페이지)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>지도 엔진</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">카카오맵 JavaScript API</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>개발 모드</span>
+                        <span class="font-bold text-emerald-600">SPA 모바일 웹 싱글파일</span>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB: 마이페이지 (USER / BODY_RECORD / DIET_GOAL / 운동 통계) -->
+            <section id="tab-mypage" class="tab-screen hidden p-4 space-y-4">
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center gap-4">
+                    <div id="myAvatar" class="w-14 h-14 shrink-0 rounded-full bg-brand-600 text-white flex items-center justify-center text-2xl font-black" aria-hidden="true">?</div>
+                    <div class="min-w-0">
+                        <p class="text-base font-black text-slate-800 dark:text-slate-100 truncate" id="myUserId">-</p>
+                        <span id="myProviderBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">일반 계정</span>
+                        <p class="text-[11px] text-slate-400 mt-1">가입일 <span id="myJoinDate">-</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-weight-scale text-brand-500" aria-hidden="true"></i> 신체 정보</h3>
+                        <button type="button" onclick="switchTab('tab-body')" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline">수정</button>
+                    </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">성별 / 나이</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBodyBasis">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">키</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myHeight">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">몸무게</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myWeight">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">BMI</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmi">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2 text-xs">
+                            <span class="font-medium text-slate-500">기초대사량</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmr">-</span>
+                        </div>
+                </div>
+
+                <form id="goalForm" class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3" novalidate>
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-bullseye text-emerald-500" aria-hidden="true"></i> 다이어트 목표</h3>
+                    <div>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200" id="goalProgressText">-</p>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-1.5 overflow-hidden" role="presentation">
+                            <div id="goalProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label for="goalTargetWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표 체중(kg)</label><input type="number" id="goalTargetWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="goalStartDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">시작일</label><input type="date" id="goalStartDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
+                        <div><label for="goalEndDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">종료일</label><input type="date" id="goalEndDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        <input type="checkbox" id="goalIsActive" class="w-4 h-4 accent-blue-600"> 현재 진행 중인 목표
+                    </label>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">목표 저장</button>
+                </form>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-chart-column text-purple-500" aria-hidden="true"></i> 나의 운동 통계</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="stat-cell"><div class="stat-value" id="statTotalDays">-</div><div class="stat-label">기록된 날</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCompletedDays">-</div><div class="stat-label">루틴 완수한 날</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCompletionRate">-</div><div class="stat-label">완수율</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statCurrentStreak">-</div><div class="stat-label">현재 연속 달성</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statLongestStreak">-</div><div class="stat-label">최장 연속 달성</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statRunCount">-</div><div class="stat-label">런닝 횟수</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statRunDistance">-</div><div class="stat-label">누적 런닝 거리</div></div>
+                        <div class="stat-cell"><div class="stat-value" id="statBurnedKcal">-</div><div class="stat-label">예상 소모 칼로리</div></div>
+                    </div>
+                    <p class="text-[10px] text-slate-400">소모 칼로리는 완료한 운동 항목당 추정치를 더한 값이라 실제와 다를 수 있어요.</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2"><i class="fa-solid fa-gear text-slate-500" aria-hidden="true"></i> 설정</h3>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">다크 모드</span>
+                        <button type="button" id="darkModeSwitch" class="switch" role="switch" aria-checked="false" aria-label="다크 모드"></button>
+                    </div>
+                    <button type="button" id="logoutButton" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> 로그아웃</button>
+                    <button type="button" id="resetDataButton" class="w-full border border-red-200 dark:border-red-900/60 text-red-500 font-bold py-2.5 rounded-xl text-xs hover:bg-red-50 dark:hover:bg-red-900/20 transition flex items-center justify-center gap-2"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> <span id="resetDataLabel">내 기록 모두 삭제</span></button>
+                </div>
+
+            </section>
+
+            <!-- TAB: 칼로리 계산기 (메뉴 29번) -->
+            <section id="tab-calorie" class="tab-screen hidden p-4 space-y-4">
+                <button type="button" onclick="switchTab('tab-menu')" class="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1.5 hover:underline">
+                    <i class="fa-solid fa-chevron-left text-[10px]" aria-hidden="true"></i> 메뉴로
+                </button>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-fire-flame-curved text-orange-500" aria-hidden="true"></i> 칼로리 계산기</h3>
+                        <p class="text-xs text-slate-400">운동 종류, 시간, 체중으로 소모 칼로리를 계산해요.</p>
+                    </div>
+                    <div><label for="calcActivity" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">운동 종류</label><select id="calcActivity" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></select></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label for="calcMinutes" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">운동 시간 (분)</label><input type="number" id="calcMinutes" value="30" min="1" max="600" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="calcWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">체중 (kg)</label><input type="number" id="calcWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                    </div>
+                    <div class="rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/40 p-4 text-center" aria-live="polite">
+                        <p class="text-[11px] font-bold text-orange-700 dark:text-orange-300">예상 소모 칼로리</p>
+                        <p class="text-3xl font-black text-orange-600 dark:text-orange-300 my-1" id="calcResultKcal">-</p>
+                        <p class="text-xs text-orange-700 dark:text-orange-300" id="calcResultFood"></p>
+                    </div>
+                    <p class="text-[10px] text-slate-400">소모 칼로리 = MET x 체중(kg) x 시간(h). 개인차가 있는 참고용 수치예요.</p>
+                </div>
+            </section>
+
+            <!-- TAB: 기초대사량 분석 (메뉴 30번) -->
+            <section id="tab-bmr" class="tab-screen hidden p-4 space-y-4">
+                <button type="button" onclick="switchTab('tab-menu')" class="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1.5 hover:underline">
+                    <i class="fa-solid fa-chevron-left text-[10px]" aria-hidden="true"></i> 메뉴로
+                </button>
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-rose-500" aria-hidden="true"></i> 기초대사량 분석</h3>
+                        <p class="text-xs text-slate-400" id="bmrBasisText">-</p>
+                    </div>
+                    <div><label for="bmrActivity" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">평소 활동량</label><select id="bmrActivity" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></select></div>
+                    <div>
+                        <span class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표</span>
+                        <div class="grid grid-cols-3 gap-1.5" id="bmrGoalButtons" role="group" aria-label="체중 목표">
+                            <button type="button" class="preset-btn" data-goal="lose" aria-pressed="true">감량</button>
+                            <button type="button" class="preset-btn" data-goal="keep" aria-pressed="false">유지</button>
+                            <button type="button" class="preset-btn" data-goal="gain" aria-pressed="false">증량</button>
+                        </div>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 p-3.5 space-y-2 text-xs" aria-live="polite">
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">기초대사량 (BMR)</span><strong id="bmrValue" class="text-slate-800 dark:text-slate-100">-</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">하루 총 소비 (활동 포함)</span><strong id="tdeeValue" class="text-slate-800 dark:text-slate-100">-</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-500 font-medium">권장 섭취 칼로리</span><strong id="intakeValue" class="text-brand-600 dark:text-brand-400">-</strong></div>
+                        <p class="text-[11px] text-slate-400" id="intakeNote"></p>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Mifflin-St Jeor 공식 기준이에요. 감량은 하루 -500kcal, 증량은 +300kcal로 계산해요.</p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Tab Navigation Bar -->
+        <nav id="mainNav" class="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-1 py-2 flex justify-around items-center z-30 shadow-lg">
+            <button onclick="switchTab('tab-today')" id="nav-tab-today" class="nav-btn flex-1 flex flex-col items-center py-1 text-brand-600 dark:text-brand-400 font-bold transition">
+                <i class="fa-solid fa-house text-base mb-0.5"></i>
+                <span class="text-[10px]">오늘 루틴</span>
+            </button>
+            <button onclick="switchTab('tab-running')" id="nav-tab-running" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-person-running text-base mb-0.5"></i>
+                <span class="text-[10px]">런닝 지도</span>
+            </button>
+            <button onclick="switchTab('tab-calendar')" id="nav-tab-calendar" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-calendar-days text-base mb-0.5"></i>
+                <span class="text-[10px]">캘린더</span>
+            </button>
+            <button onclick="switchTab('tab-body')" id="nav-tab-body" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-chart-simple text-base mb-0.5"></i>
+                <span class="text-[10px]">다이어트/BMI</span>
+            </button>
+            <button onclick="switchTab('tab-menu')" id="nav-tab-menu" class="nav-btn flex-1 flex flex-col items-center py-1 text-slate-400 font-medium transition">
+                <i class="fa-solid fa-bars text-base mb-0.5"></i>
+                <span class="text-[10px]">메뉴</span>
+            </button>
+        </nav>
+
+        <!-- V2 ENHANCED DETAIL MODAL POPUP -->
+        <div id="detailModal" inert role="dialog" aria-modal="true" aria-labelledby="modalDateTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden" id="detailModalCard">
+                
+                <!-- Modal Header -->
+                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="modalDateTitle">
+                        <i class="fa-solid fa-calendar-day"></i> 2026년 10월 7일 운동 목록
+                    </h3>
+                    <button onclick="closeDetailModal()" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- 모달 탭: 루틴 체크 / 운동일지 -->
+                <div class="px-3.5 pt-3">
+                    <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl" role="group" aria-label="모달 종류">
+                        <button type="button" class="seg-btn" id="detailTabRoutine" aria-pressed="true">루틴 체크</button>
+                        <button type="button" class="seg-btn" id="detailTabLog" aria-pressed="false">운동일지</button>
+                    </div>
+                </div>
+
+                <div id="routinePanel">
+                <!-- Modal Body: Routine Checklist -->
+                <div class="p-3.5 space-y-2.5 max-h-[280px] overflow-y-auto no-scrollbar" id="modalRoutineList">
+                    <!-- Dynamic items rendered via JS -->
+                </div>
+
+                <!-- Modal V2 Feature: Add New Item Inline Form -->
+                <div class="px-3.5 pb-2 border-t border-slate-100 dark:border-slate-700/60 pt-2.5">
+                    <form onsubmit="addNewRoutineItem(event)" class="flex items-center gap-2">
+                        <input type="text" id="newRoutineInput" placeholder="+ 새 운동 루틴 입력..." class="flex-1 bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow">
+                            추가
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-700/60 flex gap-2">
+                    <button onclick="closeDetailModal()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                        확인 및 저장
+                    </button>
+                </div>
+                </div>
+
+                <!-- 운동일지 패널 (와이어프레임 24~26번): 운동명 / 세트 / 중량 / 횟수 -->
+                <div id="logPanel" class="hidden">
+                    <div class="p-3.5 space-y-2">
+                        <div class="grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 px-1 py-1.5 text-[10px] font-bold text-slate-500 text-center border border-brand-500/50 rounded-lg">
+                            <span class="text-left">운동명</span><span>세트</span><span>중량</span><span>횟수</span><span></span>
+                        </div>
+                        <div id="exerciseLogList" class="space-y-1 max-h-[160px] overflow-y-auto no-scrollbar"></div>
+                        <p id="exerciseLogSummary" class="text-[11px] font-bold text-brand-600 dark:text-brand-400 text-right min-h-[14px]"></p>
+                    </div>
+                    <form id="exerciseLogForm" class="px-3.5 pb-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 space-y-2" novalidate>
+                        <label for="logExerciseName" class="sr-only">운동명</label>
+                        <input type="text" id="logExerciseName" maxlength="30" placeholder="운동명 (예: 스쿼트)" class="w-full bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="number" id="logSets" min="1" max="20" inputmode="numeric" placeholder="세트" aria-label="세트 수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <input type="number" id="logWeight" min="0" max="500" step="0.5" inputmode="decimal" placeholder="중량(kg)" aria-label="중량 kg" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <input type="number" id="logReps" min="1" max="200" inputmode="numeric" placeholder="횟수" aria-label="횟수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <button type="submit" class="w-full text-brand-600 dark:text-brand-400 border border-brand-500/60 hover:bg-brand-50 dark:hover:bg-slate-700 font-bold py-2 rounded-xl text-xs transition"><i class="fa-solid fa-plus mr-1" aria-hidden="true"></i>추가운동</button>
+                    </form>
+                    <div class="p-3 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-700/60">
+                        <button type="button" id="saveExerciseLogButton" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">운동일지 저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 타이머 / 스톱워치 모달 (와이어프레임 23번) -->
+        <div id="timerModal" inert role="dialog" aria-modal="true" aria-labelledby="timerModalTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden">
+
+                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="timerModalTitle">
+                        <i class="fa-regular fa-clock" aria-hidden="true"></i> 타이머 / 스톱워치
+                    </h3>
+                    <button type="button" onclick="closeTimerModal()" aria-label="닫기" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="p-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl" role="group" aria-label="시계 종류">
+                        <button type="button" class="seg-btn" id="modeStopwatchButton" aria-pressed="true">스톱워치</button>
+                        <button type="button" class="seg-btn" id="modeTimerButton" aria-pressed="false">타이머</button>
+                    </div>
+
+                    <p id="clockDisplay" role="timer" class="text-center text-5xl font-black tabular-nums text-slate-800 dark:text-slate-100 py-3">00:00:00</p>
+
+                    <!-- 타이머 모드에서만 보이는 휴식 시간 선택 -->
+                    <div id="presetRow" class="hidden">
+                        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="휴식 시간 선택">
+                            <button type="button" class="preset-btn" data-seconds="30">30초</button>
+                            <button type="button" class="preset-btn" data-seconds="60">1분</button>
+                            <button type="button" class="preset-btn" data-seconds="180">3분</button>
+                            <button type="button" class="preset-btn" data-seconds="300">5분</button>
+                        </div>
+                    </div>
+
+                    <p id="clockMessage" role="status" class="text-center text-xs text-slate-500 dark:text-slate-400 min-h-[16px]"></p>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="clockToggleButton" class="col-span-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">시작</button>
+                        <button type="button" id="clockResetButton" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition">초기화</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 성공 화면 (와이어프레임 19번) -->
+        <div id="successModal" inert role="dialog" aria-modal="true" aria-labelledby="successTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden text-center p-6 space-y-3">
+                <div class="w-20 h-20 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center text-4xl" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+                <h3 id="successTitle" class="text-3xl font-black text-emerald-600 dark:text-emerald-400">성공!</h3>
+                <p class="text-xs font-bold text-emerald-700 dark:text-emerald-300">오늘의 루틴 달성 완료!</p>
+                <p class="text-xs font-bold text-emerald-700 dark:text-emerald-300" id="successDateText"></p>
+                <p class="text-sm font-black text-amber-600 dark:text-amber-300" id="successStreakText"></p>
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button type="button" id="successCloseButton" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition">닫기</button>
+                    <button type="button" id="successCalendarButton" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">캘린더 보기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 로그인 / 회원가입 화면 (와이어프레임 1~5번) -->
+        <div id="loginScreen" inert role="dialog" aria-modal="true" aria-labelledby="loginTitle" class="hidden absolute inset-0 z-[60] bg-gradient-to-b from-brand-600 to-blue-400 dark:from-slate-950 dark:to-slate-800 overflow-y-auto no-scrollbar">
+            <div class="min-h-full flex flex-col px-7 py-10 text-white">
+                <div class="text-center mt-6">
+                    <div class="w-16 h-16 mx-auto rounded-2xl bg-white text-brand-600 flex items-center justify-center text-3xl font-black shadow-lg" aria-hidden="true">R</div>
+                    <h2 id="loginTitle" class="mt-4 text-3xl font-black tracking-tight">RoutineNote</h2>
+                    <p id="authSubtitle" class="mt-1 text-xs text-blue-100">운동 루틴을 기록하고 이어가요</p>
+                </div>
+
+                <form id="loginForm" class="mt-10 space-y-3" novalidate>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="loginUserId" class="sr-only">User ID</label>
+                        <input type="text" id="loginUserId" autocomplete="username" maxlength="20" placeholder="User ID" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="loginPassword" class="sr-only">Password</label>
+                        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+                    <div class="relative hidden" id="joinConfirmField">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                        <label for="joinPasswordConfirm" class="sr-only">Password 확인</label>
+                        <input type="password" id="joinPasswordConfirm" autocomplete="new-password" placeholder="Password 확인" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                    </div>
+
+                    <p id="loginMessage" role="alert" class="min-h-[16px] text-xs font-bold text-amber-200"></p>
+
+                    <button type="submit" id="loginSubmitButton" class="w-full bg-white text-brand-600 font-black py-3 rounded-xl text-sm shadow-lg hover:bg-blue-50 transition disabled:opacity-60">Login</button>
+                    <div class="text-right">
+                        <button type="button" id="authModeToggle" class="text-xs font-bold text-blue-100 hover:text-white underline underline-offset-2">Join</button>
+                    </div>
+                </form>
+
+                <div class="mt-auto pt-10 text-center">
+                    <p class="text-[11px] text-blue-100 mb-3">---------- Or Sign in with ----------</p>
+                    <button type="button" id="kakaoLoginButton" class="w-full bg-[#FEE500] text-[#191919] font-bold py-3 rounded-xl text-sm shadow transition hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2"><i class="fa-solid fa-comment" aria-hidden="true"></i> 카카오로 로그인</button>
+                    <p class="mt-4 text-[10px] text-blue-100/80 leading-relaxed">서버 연동 전 임시 로그인이에요. 비밀번호는 확인하지 않고,<br>이 브라우저에만 저장돼요. testuser 로 바로 로그인할 수 있어요.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification Engine UI -->
+        <div id="toast" class="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 text-xs font-bold px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600" id="toastIcon"></i>
+            <span id="toastMsg">루틴 상태가 업데이트 되었습니다.</span>
+        </div>
+
+    </div>
+
+    <!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js (모두 같은 전역 공간을 공유) -->
+    <script src="js/app.js"></script>
+    <script src="js/kakao-map.js"></script>
+    <script src="js/api.js"></script>
+<script>
+    // PWA: 서비스워커 등록 (https 또는 localhost에서만 동작)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('sw.js').catch(function (error) {
+                console.warn('서비스워커 등록 실패:', error);
+            });
+        });
+    }
+</script>
+</body>
+</html>
