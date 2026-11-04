@@ -6,4 +6,11 @@
     </style>
 
     <style name="Theme.RoutineNote" parent="Base.Theme.RoutineNote" />
+
+    <!-- 시작(스플래시) 화면: 앱을 켤 때 파란 배경에 R 로고를 보여 준다 -->
+    <style name="Theme.RoutineNote.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_600</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.RoutineNote</item>
+    </style>
 </resources>

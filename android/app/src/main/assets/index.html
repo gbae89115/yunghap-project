@@ -10,17 +10,20 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <title>RoutineNote V2.0 - 스마트 루틴 & GPS 노트</title>
+    <title>RoutineNote - 스마트 루틴 & GPS 노트</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 화면 라이브러리는 인터넷 없이도 뜨도록 앱 안(vendor/)에 넣어 둔다
+         (받는 방법: 저장소 맨 위에서 bash tools/download-vendor.sh) -->
+
+    <!-- Tailwind CSS 3.4.17 -->
+    <script src="vendor/tailwind/tailwindcss.js"></script>
     <script src="js/tailwind-config.js"></script>
     
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- FontAwesome Icons 6.4.0 -->
+    <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
     
     <!-- FullCalendar: 수업 규칙에 따라 버전을 @6.1.8 로 정확히 고정 -->
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <script src="vendor/fullcalendar/index.global.min.js"></script>
 
     <!-- Kakao Map API SDK (User Provided Key)
          libraries=services : 좌표 -> 주소 변환(Geocoder)에 필요. 이 값이 없으면 주소 뱃지가 갱신되지 않는다.
@@ -77,7 +80,6 @@
                     <div>
                         <div class="flex items-center gap-1.5">
                             <h1 class="text-lg font-black tracking-tight leading-none">RoutineNote</h1>
-                            <span class="text-[9px] bg-blue-500/30 text-blue-100 dark:bg-brand-500 dark:text-white px-1.5 py-0.5 rounded font-bold">V2.2</span>
                         </div>
                         <p class="text-[10px] text-blue-100 dark:text-slate-400 font-medium mt-0.5">스마트 루틴 & GPS 지도 노트</p>
                     </div>
@@ -222,9 +224,8 @@
                     <div class="flex justify-between items-center px-1">
                         <div class="flex items-center space-x-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">카카오맵 v2.0 GPS 실시간 트래커</h3>
+                            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">GPS 러닝 트래커</h3>
                         </div>
-                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded font-mono">Kakao API</span>
                     </div>
 
                     <!-- Kakao Map Div Container -->
@@ -302,7 +303,7 @@
                 <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-2xl p-4 text-xs text-blue-900 dark:text-blue-200 flex items-start space-x-3">
                     <i class="fa-solid fa-circle-info text-brand-500 text-base mt-0.5"></i>
                     <div>
-                        <strong class="font-bold block mb-0.5">V2 캘린더 기능 안내</strong>
+                        <strong class="font-bold block mb-0.5">캘린더 사용법</strong>
                         날짜를 클릭하면 그날 수행한 운동 루틴을 확인하고, <strong>새로운 운동 항목을 직접 추가</strong>하거나 완료 상태를 변경할 수 있습니다.
                     </div>
                 </div>
@@ -501,11 +502,11 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 text-xs space-y-2 text-slate-500 dark:text-slate-400">
                     <div class="flex justify-between">
                         <span>앱 버전</span>
-                        <span class="font-bold text-slate-800 dark:text-slate-200">v2.3 (로그인 · 마이페이지)</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">1.0.0</span>
                     </div>
                     <div class="flex justify-between">
                         <span>지도 엔진</span>
-                        <span class="font-bold text-slate-800 dark:text-slate-200">카카오맵 JavaScript API</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">카카오맵</span>
                     </div>
                     <div class="flex justify-between">
                         <span>개발 모드</span>
@@ -843,9 +844,8 @@
                 </form>
 
                 <div class="mt-auto pt-10 text-center">
-                    <p class="text-[11px] text-blue-100 mb-3">---------- Or Sign in with ----------</p>
+                    <p class="text-[11px] text-blue-100 mb-3">또는 간편 로그인</p>
                     <button type="button" id="kakaoLoginButton" class="w-full bg-[#FEE500] text-[#191919] font-bold py-3 rounded-xl text-sm shadow transition hover:brightness-95 disabled:opacity-60 flex items-center justify-center gap-2"><i class="fa-solid fa-comment" aria-hidden="true"></i> 카카오로 로그인</button>
-                    <p class="mt-4 text-[10px] text-blue-100/80 leading-relaxed">서버 연동 전 임시 로그인이에요. 비밀번호는 확인하지 않고,<br>이 브라우저에만 저장돼요. testuser 로 바로 로그인할 수 있어요.</p>
                 </div>
             </div>
         </div>

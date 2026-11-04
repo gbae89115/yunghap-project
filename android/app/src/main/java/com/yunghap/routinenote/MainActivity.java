@@ -4,6 +4,8 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.webkit.GeolocationPermissions;
@@ -21,6 +23,7 @@ import android.widget.FrameLayout;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -41,9 +44,18 @@ public class MainActivity extends AppCompatActivity {
     private View bottomBarBackground;
     private WindowInsetsControllerCompat barController;
 
+    // 웹 화면이 다 뜰 때까지 시작 화면(스플래시)을 보여 준다
+    private boolean isWebReady = false;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 0. 시작 화면: 파란 배경 + R 로고 (themes.xml 의 Theme.RoutineNote.Starting)
+        //    웹 화면이 준비되면 닫히고, 늦어져도 3초 뒤에는 닫는다
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        splashScreen.setKeepOnScreenCondition(() -> !isWebReady);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> isWebReady = true, 3000);
+
         super.onCreate(savedInstanceState);
 
         // 1. 화면 구성: 브랜드색 바탕 위에 웹뷰를 올린다
@@ -52,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         root = new FrameLayout(this);
 
         webView = new WebView(this);
+        webView.setBackgroundColor(COLOR_SLATE_900); // 웹 화면이 그려지기 전 하얀 화면이 번쩍이지 않게
         FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         root.addView(webView, webParams);
@@ -93,6 +106,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // 페이지를 다 읽은 뒤 화면이 그려질 시간을 조금 주고 시작 화면을 닫는다
+                view.postDelayed(() -> isWebReady = true, 200);
             }
         });
 
