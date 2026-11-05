@@ -34,20 +34,20 @@ async function updateRoutineCheck(selectionId, isChecked) {
     }
 }
 
-// 3. GPS 런닝 종료 시 기록 저장
+// 3. GPS 런닝 종료 시 기록 저장 (성공하면 true, 실패하면 false)
 async function saveGpsRecord(selectionId, distance, calories, routePath) {
     try {
-    const response = await fetch(`${API_BASE_URL}/workout/gps`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectionId, distance, calories, routePath })
-    });
-    const data = await response.json();
-    if (data.success) {
-        alert('GPS 런닝 기록이 MySQL DB에 저장되었습니다!');
-    }
+        const response = await fetch(`${API_BASE_URL}/workout/gps`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, distance, calories, routePath })
+        });
+        const data = await response.json();
+        if (data.success) console.log('GPS 기록 서버 저장 완료, gpsId =', data.gpsId);
+        return data.success === true;
     } catch (error) {
-    console.error('GPS 저장 실패:', error);
+        console.error('GPS 저장 실패:', error);
+        return false;
     }
 }
 

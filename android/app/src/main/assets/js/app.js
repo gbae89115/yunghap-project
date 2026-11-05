@@ -1894,7 +1894,13 @@ async function finishRunningAndSave() {
     });
     await saveStoredValue('gpsLogs', gpsLogs);
     // 서버가 준비되면 여기서 saveGpsRecord(selectionId, distance, calories, routePath) 를 호출한다.
-
+    // 서버(MySQL)에도 저장한다. 실패해도 기기 저장은 유지된다.
+        const savedToServer = await saveGpsRecord(
+            null,
+            Number(distanceKm.toFixed(2)),
+            Math.round(caloriesBurned),
+            getRunPathForSave()
+        );
     // 오늘의 런닝 항목을 완료 처리한다 (없으면 새로 만든다)
     const todayKey = getTodayKey();
     const wasCompleted = getDayStatus(workoutState[todayKey]) === 'completed';
@@ -1912,7 +1918,7 @@ async function finishRunningAndSave() {
 
     await commitWorkoutChange();
     resetRunningData();
-    showToast('런닝 기록을 저장했어요.');
+    showToast(savedToServer ? '런닝 기록을 저장했어요.' : '기기에는 저장했지만 서버 저장은 실패했어요.');
 
     if (!wasCompleted && getDayStatus(workoutState[todayKey]) === 'completed') {
         openSuccessModal();
