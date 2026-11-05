@@ -91,6 +91,7 @@ const goalAdjustments = {
 };
 
 let currentUser = null;
+let profileName = ''; // 초기값 설정 화면에서 입력한 이름 (없으면 아이디를 대신 보여 준다)
 let authMode = 'login';
 let bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
 let bodyRecords = [];
@@ -772,6 +773,11 @@ function getUserKey(name) {
     return `user:${currentUser.userId}:${name}`;
 }
 
+// 화면에 보여 줄 이름: 초기값 설정에서 입력한 이름이 있으면 그것, 없으면 아이디
+function getDisplayName() {
+    return profileName !== '' ? profileName : currentUser.userId;
+}
+
 function requestStoredValue(name, fallbackValue) {
     return new Promise((resolve) => {
         setTimeout(() => resolve(readStorage(getUserKey(name), fallbackValue)), 0);
@@ -976,7 +982,7 @@ async function beginSession(account, isFreshLogin) {
     await loadWorkoutData();
 
     switchTab('tab-today');
-    if (isFreshLogin) showToast(`${currentUser.userId} 님, 환영해요!`);
+    if (isFreshLogin) showToast(`${getDisplayName()} 님, 환영해요!`);
 }
 
 function closeAllModals() {
@@ -993,6 +999,7 @@ function logout() {
     if (isRunning) toggleRunningSimulation();
 
     currentUser = null;
+    profileName = '';
     workoutState = {};
     workoutLogs = [];
     isWorkoutLoaded = false;
@@ -1007,13 +1014,16 @@ function logout() {
 
 // 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 예시 데이터)
 async function loadUserData() {
-    const [storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
+    const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
+        requestStoredValue('profileName', ''),
         requestStoredValue('bodyProfile', null),
         requestStoredValue('bodyRecords', null),
         requestStoredValue('dietGoal', null),
         requestStoredValue('exerciseLogs', null),
         requestStoredValue('gpsLogs', null)
     ]);
+
+    profileName = typeof storedName === 'string' ? storedName.trim() : '';
 
     bodyProfile = isValidBodyProfile(storedProfile)
         ? storedProfile
@@ -1940,8 +1950,10 @@ function renderMyPage() {
     const isKakao = currentUser.provider === 'kakao';
 
     // 프로필
-    setText('myAvatar', currentUser.userId.charAt(0).toUpperCase());
-    setText('myUserId', currentUser.userId);
+    const displayName = getDisplayName();
+    setText('myAvatar', displayName.charAt(0).toUpperCase());
+    setText('myUserId', displayName);
+    document.getElementById('myUserId').title = `아이디: ${currentUser.userId}`;
     setText('myJoinDate', currentUser.createdAt ? formatKoreanDate(currentUser.createdAt) : '-');
 
     const providerBadge = document.getElementById('myProviderBadge');
