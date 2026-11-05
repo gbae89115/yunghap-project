@@ -2,7 +2,7 @@
    담당: 최진범 (카카오 API·DB)
    (index.html에서 분리 — 내용은 그대로) */
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'https://routinenote-backend.onrender.com/api';
 
 // 1. 페이지 로드 시 백엔드에서 오늘 루틴 목록 조회
 async function loadTodayRoutines() {
