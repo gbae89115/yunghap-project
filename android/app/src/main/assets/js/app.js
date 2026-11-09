@@ -967,6 +967,7 @@ async function initApp() {
     renderTodayChecklist();   // 로딩 안내를 먼저 보여준다
 
     ensureDemoAccount();
+    if (typeof handleKakaoLoginReturn === 'function' && await handleKakaoLoginReturn()) return;
     const savedSession = readStorage('session', null);
     const savedAccount = savedSession ? findAccount(savedSession.userId) : null;
 
@@ -1175,7 +1176,7 @@ function bindAuthEvents() {
     document.getElementById('authModeToggle').addEventListener('click', () => {
         setAuthMode(authMode === 'login' ? 'join' : 'login');
     });
-    document.getElementById('kakaoLoginButton').addEventListener('click', handleKakaoLogin);
+    document.getElementById('kakaoLoginButton').addEventListener('click', () => startKakaoLogin());
 }
 
 async function handleAuthSubmit(event) {
@@ -2905,3 +2906,4 @@ function showToast(msg) {
         toast.classList.add('opacity-0', 'pointer-events-none');
     }, 2400);
 }
+
