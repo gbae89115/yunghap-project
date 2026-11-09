@@ -148,15 +148,22 @@ public class MainActivity extends AppCompatActivity {
         // 5. 루틴노트 화면 열기
         webView.loadUrl(START_URL);
 
-        // 6. 뒤로가기 버튼: 웹 안에서 뒤로 가고, 더 갈 곳이 없으면 앱 종료
+        // 6. 뒤로가기 버튼: 먼저 웹 화면(app.js 의 handleAppBack)에 맡긴다
+        //    - 열린 창 닫기 / 이전 탭으로 이동 / 초기값 설정 이전 단계 → 웹이 처리하고 "true"
+        //    - 처음 화면에서 두 번 눌렀을 때 → "false" 를 받아 앱 종료
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack();
-                } else {
-                    finish();
-                }
+                webView.evaluateJavascript(
+                        "(typeof handleAppBack === 'function') ? handleAppBack() : false",
+                        result -> {
+                            if ("true".equals(result)) return;
+                            if (webView.canGoBack()) {
+                                webView.goBack();
+                            } else {
+                                finish();
+                            }
+                        });
             }
         });
     }

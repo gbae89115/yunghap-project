@@ -1314,7 +1314,72 @@ function toggleDarkMode() {
     showToast(willBeDark ? '다크 모드로 전환되었습니다.' : '라이트 모드로 전환되었습니다.');
 }
 
-function switchTab(tabId) {
+/* ==========================================
+   뒤로가기: 휴대폰 뒤로 버튼을 누르면 MainActivity 가 handleAppBack() 을 부른다
+   열린 화면 닫기 → 이전 탭 → (오늘 루틴에서) 두 번 누르면 종료
+   ========================================== */
+let currentTabId = 'tab-today';
+let tabHistory = []; // 지나온 탭 (오늘 루틴으로 가면 비운다)
+let lastBackPressAt = 0;
+
+function isScreenVisible(elementId) {
+    const element = document.getElementById(elementId);
+    return element !== null && !element.classList.contains('hidden');
+}
+
+// 처음 화면에서는 한 번 더 눌러야 종료 (실수로 꺼지지 않게)
+function confirmAppExit() {
+    if (Date.now() - lastBackPressAt < 2000) return false;
+    lastBackPressAt = Date.now();
+    showToast('뒤로 버튼을 한 번 더 누르면 종료돼요.');
+    return true;
+}
+
+// 앱이 뒤로가기를 처리했으면 true, 앱을 종료해도 되면 false 를 돌려준다
+function handleAppBack() {
+    // 1. 초기값 설정 화면: 이전 단계로 (1단계면 종료 확인)
+    if (isScreenVisible('onboardingScreen')) {
+        if (typeof onboardingStep === 'number' && onboardingStep > 1) {
+            goToOnboardingStep(onboardingStep - 1);
+            return true;
+        }
+        return confirmAppExit();
+    }
+
+    // 2. 로그인 화면
+    if (isScreenVisible('loginScreen')) return confirmAppExit();
+
+    // 3. 열려 있는 창(성공 화면 → 타이머/스톱워치 → 날짜 상세) 닫기
+    const openModal = [
+        ['successModal', closeSuccessModal],
+        ['timerModal', closeTimerModal],
+        ['detailModal', closeDetailModal]
+    ].find(([modalId]) => isModalOpen(document.getElementById(modalId)));
+    if (openModal) {
+        openModal[1]();
+        return true;
+    }
+
+    // 4. 이전 탭으로 (기록이 없으면 오늘 루틴으로)
+    if (currentTabId !== 'tab-today') {
+        switchTab(tabHistory.pop() || 'tab-today', { isBack: true });
+        return true;
+    }
+
+    // 5. 오늘 루틴 화면: 두 번 누르면 종료
+    return confirmAppExit();
+}
+
+function switchTab(tabId, options = {}) {
+    // 뒤로가기용 탭 기록
+    if (tabId === 'tab-today') {
+        tabHistory = [];
+    } else if (!options.isBack && currentTabId !== tabId) {
+        tabHistory.push(currentTabId);
+        if (tabHistory.length > 20) tabHistory.shift();
+    }
+    currentTabId = tabId;
+
     document.querySelectorAll('.tab-screen').forEach(tab => {
         tab.classList.add('hidden');
     });
