@@ -313,47 +313,13 @@
             <!-- TAB 4: 다이어트 & BMI 분석 -->
             <section id="tab-body" class="tab-screen hidden p-4 space-y-4">
                 
-                <!-- Body Data Calculator Card -->
-                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
-                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
-                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <i class="fa-solid fa-weight-scale text-brand-500"></i> 신체 데이터 설정 및 계산
-                        </h3>
-                        <p class="text-xs text-slate-400">BMI 수치 및 일일 권장 기초대사량을 자동 산출합니다.</p>
+                <!-- 내 신체 정보 요약 (입력·수정은 마이페이지에서) -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-bold text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-user text-brand-500" aria-hidden="true"></i> 내 신체 정보</p>
+                        <p id="bodySummaryText" class="mt-0.5 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">-</p>
                     </div>
-
-                    <!-- Gender Button Group -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">성별 선택</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button type="button" id="genderMale" onclick="setGender('male')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300">
-                                <i class="fa-solid fa-mars"></i> 남성
-                            </button>
-                            <button type="button" id="genderFemale" onclick="setGender('female')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300">
-                                <i class="fa-solid fa-venus"></i> 여성
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Inputs Grid -->
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">나이 (세)</label>
-                            <input type="number" id="inputAge" value="28" min="10" max="100" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">몸무게 (kg)</label>
-                            <input type="number" id="inputWeight" value="72.5" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">키 (cm)</label>
-                            <input type="number" id="inputHeight" value="175" step="0.5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        </div>
-                    </div>
-
-                    <button type="button" onclick="calculateBodyMetrics(true)" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-calculator"></i> BMI & BMR 계산 업데이트
-                    </button>
+                    <button type="button" onclick="switchTab('tab-mypage')" class="shrink-0 text-xs font-bold text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-slate-600 rounded-xl px-3 py-2 hover:bg-brand-50 dark:hover:bg-slate-700 transition">마이페이지에서 수정</button>
                 </div>
 
                 <!-- 다이어트 기간 비교: 기간 설정 → 일일 체중 기록 → 기간 동안의 변화 + 현재 BMI -->
@@ -572,31 +538,46 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
-                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
+                <!-- 신체 정보: 성별·나이·키·몸무게 설정 + BMI / 기초대사량 계산 -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3.5">
+                    <div class="border-b border-slate-100 dark:border-slate-700/60 pb-2">
                         <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-solid fa-weight-scale text-brand-500" aria-hidden="true"></i> 신체 정보</h3>
-                        <button type="button" onclick="switchTab('tab-body')" class="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline">수정</button>
+                        <p class="text-[11px] text-slate-400 mt-0.5">BMI와 하루 기초대사량을 계산할 때 사용해요.</p>
                     </div>
-                        <div class="flex justify-between items-center gap-2 text-xs">
-                            <span class="font-medium text-slate-500">성별 / 나이</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBodyBasis">-</span>
+
+                    <div class="grid grid-cols-2 gap-2 text-center">
+                        <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60">
+                            <p class="text-[10px] font-bold text-slate-500">BMI</p>
+                            <p class="text-sm font-black text-slate-800 dark:text-slate-100" id="myBmi">-</p>
                         </div>
-                        <div class="flex justify-between items-center gap-2 text-xs">
-                            <span class="font-medium text-slate-500">키</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myHeight">-</span>
+                        <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60">
+                            <p class="text-[10px] font-bold text-slate-500">기초대사량</p>
+                            <p class="text-sm font-black text-slate-800 dark:text-slate-100" id="myBmr">-</p>
                         </div>
-                        <div class="flex justify-between items-center gap-2 text-xs">
-                            <span class="font-medium text-slate-500">몸무게</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myWeight">-</span>
+                    </div>
+
+                    <div>
+                        <p class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">성별</p>
+                        <div class="grid grid-cols-2 gap-3" role="group" aria-label="성별">
+                            <button type="button" id="genderMale" onclick="setGender('male')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300">
+                                <i class="fa-solid fa-mars" aria-hidden="true"></i> 남성
+                            </button>
+                            <button type="button" id="genderFemale" onclick="setGender('female')" class="py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300">
+                                <i class="fa-solid fa-venus" aria-hidden="true"></i> 여성
+                            </button>
                         </div>
-                        <div class="flex justify-between items-center gap-2 text-xs">
-                            <span class="font-medium text-slate-500">BMI</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmi">-</span>
-                        </div>
-                        <div class="flex justify-between items-center gap-2 text-xs">
-                            <span class="font-medium text-slate-500">기초대사량</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="myBmr">-</span>
-                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label for="inputAge" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">나이 (세)</label><input type="number" id="inputAge" min="10" max="100" inputmode="numeric" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="inputHeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">키 (cm)</label><input type="number" id="inputHeight" step="0.1" min="100" max="250" inputmode="decimal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        <div><label for="inputWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">몸무게 (kg)</label><input type="number" id="inputWeight" step="0.1" min="20" max="300" inputmode="decimal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                    </div>
+
+                    <button type="button" onclick="calculateBodyMetrics(true)" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-calculator" aria-hidden="true"></i> 저장하고 BMI · 기초대사량 계산
+                    </button>
+                    <p class="text-[11px] text-slate-400">몸무게를 바꾸면 오늘 날짜의 체중 기록으로도 저장돼요.</p>
                 </div>
 
                 <form id="goalForm" class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3" novalidate>
@@ -969,7 +950,7 @@
                 <!-- 2단계: 키 · 몸무게 -->
                 <section id="onboardingStep2" class="mt-10 hidden">
                     <h2 class="text-2xl font-black leading-snug">지금 몸 상태를<br>기록해 둘게요</h2>
-                    <p class="mt-2 text-xs text-blue-100">첫 체중 기록으로 저장돼요. 나중에 다이어트/BMI 탭에서 바꿀 수 있어요.</p>
+                    <p class="mt-2 text-xs text-blue-100">첫 체중 기록으로 저장돼요. 나중에 마이페이지에서 바꿀 수 있어요.</p>
 
                     <label for="onboardingHeight" class="block mt-8 mb-2 text-xs font-bold text-blue-100">키</label>
                     <div class="onboarding-field">
