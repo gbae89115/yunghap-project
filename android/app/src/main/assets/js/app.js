@@ -32,9 +32,10 @@ let selectedGender = "male";
 // GPS Running State
 let isRunning = false;
 let runTimerInterval = null;
-let secondsElapsed = 1720; // 00:28:40
-let distanceKm = 5.2;
-let caloriesBurned = 415;
+// 러닝 기록은 0에서 시작한다 (예전 예시값: 00:28:40 / 5.2km / 415kcal)
+let secondsElapsed = 0;
+let distanceKm = 0;
+let caloriesBurned = 0;
 
 // Kakao Map Instances
 let kakaoMapInstance = null;
@@ -1054,6 +1055,11 @@ function findAccount(userId) {
 }
 
 // 서버의 테스트 사용자(testuser)와 같은 아이디를 미리 만들어 둔다
+// 예시 데이터는 시연용 계정(testuser)에만 채운다. 새로 가입한 사용자는 빈 데이터로 시작한다.
+function isDemoUser() {
+    return currentUser !== null && currentUser.userId === demoUserId;
+}
+
 function ensureDemoAccount() {
     if (findAccount(demoUserId) !== null) return;
 
@@ -1250,7 +1256,7 @@ function logout() {
     showLoginScreen();
 }
 
-// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 예시 데이터)
+// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 빈 데이터, 시연용 계정만 예시 데이터)
 async function loadUserData() {
     const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
         requestStoredValue('profileName', ''),
@@ -1267,13 +1273,17 @@ async function loadUserData() {
         ? storedProfile
         : { gender: 'male', age: 28, height: 175, weight: 72.5 };
 
-    bodyRecords = Array.isArray(storedRecords) && storedRecords.length > 0
-        ? storedRecords
-        : buildMockBodyRecords();
+    if (Array.isArray(storedRecords) && storedRecords.length > 0) {
+        bodyRecords = storedRecords;
+    } else {
+        bodyRecords = isDemoUser() ? buildMockBodyRecords() : [];
+    }
 
-    dietGoal = storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)
-        ? storedGoal
-        : buildMockDietGoal();
+    if (storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)) {
+        dietGoal = storedGoal;
+    } else {
+        dietGoal = isDemoUser() ? buildMockDietGoal() : null; // 새 사용자는 목표 없음
+    }
 
     exerciseLogs = storedLogs && typeof storedLogs === 'object' && !Array.isArray(storedLogs)
         ? storedLogs
@@ -1339,7 +1349,10 @@ function switchTab(tabId) {
         fillGoalForm();
         renderMyPage();
     }
-    if (tabId === 'tab-body') renderDietSection();
+    if (tabId === 'tab-body') {
+        fillDietPeriodForm();
+        renderDietSection();
+    }
     if (tabId === 'tab-bmr') renderBmrAnalysis();
     if (tabId === 'tab-calorie') prefillCalorieWeight();
 }
@@ -1424,7 +1437,7 @@ async function getWorkoutState(userId) {
     // }
     // return await response.json();
 
-    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 예시 데이터를 만든다
+    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 빈 기록 (시연용 계정만 예시 데이터)
     const storedWorkout = await requestStoredValue('workout', null);
 
     if (storedWorkout && storedWorkout.isCustom && storedWorkout.state) {
@@ -1435,6 +1448,7 @@ async function getWorkoutState(userId) {
     }
 
     isWorkoutCustom = false;
+    if (!isDemoUser()) return {};
     return await requestWorkoutData(userId);
 }
 
@@ -1774,24 +1788,60 @@ function computeRecordBmi(record) {
     return record.weight / (heightM * heightM);
 }
 
-// 달성도 = (시작 체중 - 현재 체중) / (시작 체중 - 목표 체중)
+/* 다이어트 기간: 시작일 ~ 종료일 사이의 일일 체중 기록으로 변화를 본다 */
+function parseDateKey(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+// 두 날짜 사이의 일수 (같은 날이면 0)
+function getDaysBetween(fromKey, toKey) {
+    return Math.round((parseDateKey(toKey) - parseDateKey(fromKey)) / 86400000);
+}
+
+function formatShortDate(dateKey) {
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))} (${weekdays[parseDateKey(dateKey).getDay()]})`;
+}
+
+function hasTargetWeight() {
+    return dietGoal !== null && Number.isFinite(dietGoal.targetWeight);
+}
+
+// 기간 안(시작일 ~ 종료일)의 체중 기록
+function getPeriodRecords() {
+    if (dietGoal === null) return [];
+    return getBodyRecordsSorted().filter(record =>
+        record.recordDate >= dietGoal.startDate && record.recordDate <= dietGoal.endDate);
+}
+
+// 기간 변화 계산: 시작 체중 = 시작일 당일(또는 그 전) 마지막 기록, 없으면 기간 안 첫 기록
 function calculateDietProgress() {
-    const records = getBodyRecordsSorted();
-    if (records.length === 0 || dietGoal === null) return null;
+    if (dietGoal === null) return null;
 
-    const startRecord = records.find(record => record.recordDate >= dietGoal.startDate) || records[0];
-    const latestRecord = records[records.length - 1];
-    const totalGap = startRecord.weight - dietGoal.targetWeight;
+    const periodRecords = getPeriodRecords();
+    const recordsBeforeStart = getBodyRecordsSorted().filter(record => record.recordDate <= dietGoal.startDate);
+    const startRecord = recordsBeforeStart[recordsBeforeStart.length - 1] || periodRecords[0];
+    if (!startRecord) return null;
 
-    let percent = totalGap === 0 ? 100 : ((startRecord.weight - latestRecord.weight) / totalGap) * 100;
-    percent = Math.max(0, Math.min(100, Math.round(percent)));
+    const latestRecord = periodRecords[periodRecords.length - 1] || startRecord;
+    const targetWeight = hasTargetWeight() ? dietGoal.targetWeight : null;
+
+    // 달성도 = (시작 체중 - 현재 체중) / (시작 체중 - 목표 체중)
+    let percent = null;
+    if (targetWeight !== null) {
+        const totalGap = startRecord.weight - targetWeight;
+        percent = totalGap === 0 ? 100 : ((startRecord.weight - latestRecord.weight) / totalGap) * 100;
+        percent = Math.max(0, Math.min(100, Math.round(percent)));
+    }
 
     return {
         startRecord: startRecord,
         latestRecord: latestRecord,
+        periodRecords: periodRecords,
         startWeight: startRecord.weight,
         currentWeight: latestRecord.weight,
-        targetWeight: dietGoal.targetWeight,
+        targetWeight: targetWeight,
         changeKg: latestRecord.weight - startRecord.weight,
         percent: percent
     };
@@ -1811,20 +1861,32 @@ function appendSvgText(svg, attributes, text) {
     svg.appendChild(textElement);
 }
 
-function drawWeightChart() {
+// 기간(시작일 ~ 종료일)을 가로축으로, 일일 체중 기록을 점으로 그린다
+function drawWeightChart(progress) {
     const svg = document.getElementById('weightChartSvg');
     svg.replaceChildren();
 
-    const records = getBodyRecordsSorted().slice(-8);
-    if (records.length === 0) {
-        appendSvgText(svg, { x: 150, y: 55, 'font-size': 10, fill: '#94a3b8', 'text-anchor': 'middle' },
-            '체중 기록이 없어요. 신체 데이터를 저장해 보세요.');
+    const showMessage = (message) => {
+        appendSvgText(svg, { x: 150, y: 60, 'font-size': 10, fill: '#94a3b8', 'text-anchor': 'middle' }, message);
+    };
+
+    if (dietGoal === null) {
+        showMessage('다이어트 기간을 먼저 설정해 주세요.');
+        return;
+    }
+    if (progress === null) {
+        showMessage('기간 안에 체중 기록이 없어요. 오늘 체중을 기록해 보세요.');
         return;
     }
 
-    const weights = records.map(record => record.weight);
-    const hasGoal = dietGoal !== null && Number.isFinite(dietGoal.targetWeight);
-    const scaleValues = hasGoal ? [...weights, dietGoal.targetWeight] : weights;
+    // 시작 체중이 시작일 전 기록이면 시작일 위치에 붙여서 그린다
+    const chartRecords = [...progress.periodRecords];
+    if (progress.startRecord.recordDate < dietGoal.startDate) {
+        chartRecords.unshift({ ...progress.startRecord, recordDate: dietGoal.startDate, isCarried: true });
+    }
+
+    const weights = chartRecords.map(record => record.weight);
+    const scaleValues = progress.targetWeight !== null ? [...weights, progress.targetWeight] : weights;
 
     // 눈금 값이 정수로 떨어지도록 범위를 짝수 칸으로 맞춘다
     const minValue = Math.floor(Math.min(...scaleValues)) - 1;
@@ -1832,90 +1894,376 @@ function drawWeightChart() {
     if (maxValue - minValue < 4) maxValue = minValue + 4;
     if ((maxValue - minValue) % 2 === 1) maxValue += 1;
 
-    const getY = (weight) => 80 - ((weight - minValue) / (maxValue - minValue)) * 60;
-    const getX = (index) => (records.length === 1 ? 160 : 40 + index * (240 / (records.length - 1)));
+    const totalDays = Math.max(1, getDaysBetween(dietGoal.startDate, dietGoal.endDate));
+    const getX = (dateKey) => 36 + (getDaysBetween(dietGoal.startDate, dateKey) / totalDays) * 252;
+    const getY = (weight) => 88 - ((weight - minValue) / (maxValue - minValue)) * 72;
 
     // 눈금선과 눈금 글자
-    [20, 50, 80].forEach(lineY => {
+    [16, 52, 88].forEach(lineY => {
         svg.appendChild(createSvgElement('line', {
-            x1: 30, y1: lineY, x2: 290, y2: lineY, stroke: '#cbd5e1', 'stroke-dasharray': 2
+            x1: 32, y1: lineY, x2: 290, y2: lineY, stroke: '#cbd5e1', 'stroke-dasharray': 2
         }));
-        const labelValue = maxValue - ((lineY - 20) / 60) * (maxValue - minValue);
-        appendSvgText(svg, { x: 24, y: lineY + 3, 'font-size': 8, fill: '#94a3b8', 'text-anchor': 'end' },
+        const labelValue = maxValue - ((lineY - 16) / 72) * (maxValue - minValue);
+        appendSvgText(svg, { x: 28, y: lineY + 3, 'font-size': 8, fill: '#94a3b8', 'text-anchor': 'end' },
             `${labelValue}kg`);
     });
 
-    // 목표 체중선
-    if (hasGoal) {
-        const goalY = getY(dietGoal.targetWeight);
+    // 오늘 위치 (기간 안일 때만)
+    const todayKey = getTodayKey();
+    if (todayKey > dietGoal.startDate && todayKey < dietGoal.endDate) {
+        const todayX = getX(todayKey);
         svg.appendChild(createSvgElement('line', {
-            x1: 30, y1: goalY, x2: 290, y2: goalY, stroke: '#10b981', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'
+            x1: todayX, y1: 12, x2: todayX, y2: 92, stroke: '#94a3b8', 'stroke-width': 1, 'stroke-dasharray': '2 2'
+        }));
+        appendSvgText(svg, { x: todayX, y: 9, 'font-size': 7.5, fill: '#64748b', 'text-anchor': 'middle' }, '오늘');
+    }
+
+    // 목표 체중선
+    if (progress.targetWeight !== null) {
+        const goalY = getY(progress.targetWeight);
+        svg.appendChild(createSvgElement('line', {
+            x1: 32, y1: goalY, x2: 290, y2: goalY, stroke: '#10b981', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'
         }));
         appendSvgText(svg, { x: 290, y: goalY - 3, 'font-size': 8, fill: '#059669', 'font-weight': 'bold', 'text-anchor': 'end' },
-            `목표 ${dietGoal.targetWeight}kg`);
+            `목표 ${progress.targetWeight}kg`);
     }
 
     // 꺾은선 + 아래 면
-    const points = records.map((record, index) => ({ x: getX(index), y: getY(record.weight) }));
+    const points = chartRecords.map(record => ({ x: getX(record.recordDate), y: getY(record.weight) }));
     const linePath = points
         .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
         .join(' ');
-    const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 90 L ${points[0].x.toFixed(1)} 90 Z`;
 
-    const defs = createSvgElement('defs');
-    const gradient = createSvgElement('linearGradient', { id: 'chartGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
-    gradient.appendChild(createSvgElement('stop', { offset: '0%', 'stop-color': '#3b82f6' }));
-    gradient.appendChild(createSvgElement('stop', { offset: '100%', 'stop-color': '#3b82f6', 'stop-opacity': 0 }));
-    defs.appendChild(gradient);
-    svg.appendChild(defs);
+    if (points.length > 1) {
+        const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 92 L ${points[0].x.toFixed(1)} 92 Z`;
+        const defs = createSvgElement('defs');
+        const gradient = createSvgElement('linearGradient', { id: 'chartGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
+        gradient.appendChild(createSvgElement('stop', { offset: '0%', 'stop-color': '#3b82f6' }));
+        gradient.appendChild(createSvgElement('stop', { offset: '100%', 'stop-color': '#3b82f6', 'stop-opacity': 0 }));
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
+        svg.appendChild(createSvgElement('path', { d: areaPath, fill: 'url(#chartGradient)', opacity: 0.2 }));
+        svg.appendChild(createSvgElement('path', {
+            d: linePath, fill: 'none', stroke: '#3b82f6', 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+        }));
+    }
 
-    svg.appendChild(createSvgElement('path', { d: areaPath, fill: 'url(#chartGradient)', opacity: 0.2 }));
-    svg.appendChild(createSvgElement('path', {
-        d: linePath, fill: 'none', stroke: '#3b82f6', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-    }));
-
-    // 점 + 날짜 글자
+    // 점 (기록이 많으면 작게, 마지막 기록은 초록색으로 크게)
+    const dotRadius = points.length > 20 ? 2 : 3;
     points.forEach((point, index) => {
         const isLast = index === points.length - 1;
         svg.appendChild(createSvgElement('circle', {
-            cx: point.x, cy: point.y, r: isLast ? 5 : 3.5,
+            cx: point.x, cy: point.y, r: isLast ? 4.5 : dotRadius,
             fill: isLast ? '#10b981' : '#3b82f6',
             stroke: isLast ? '#ffffff' : 'none', 'stroke-width': isLast ? 2 : 0
         }));
-
-        const dateKey = records[index].recordDate;
-        appendSvgText(svg, {
-            x: point.x, y: 105, 'font-size': 8,
-            fill: isLast ? '#3b82f6' : '#64748b', 'font-weight': isLast ? 'bold' : 'normal', 'text-anchor': 'middle'
-        }, `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`);
     });
 
-    svg.setAttribute('aria-label', `체중 변화 그래프: ${weights[0]}kg에서 ${weights[weights.length - 1]}kg`);
+    // 가로축: 시작일 / 종료일
+    const formatAxisDate = (dateKey) => `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`;
+    appendSvgText(svg, { x: 36, y: 108, 'font-size': 8, fill: '#64748b', 'text-anchor': 'start' },
+        `${formatAxisDate(dietGoal.startDate)} 시작`);
+    appendSvgText(svg, { x: 288, y: 108, 'font-size': 8, fill: '#64748b', 'text-anchor': 'end' },
+        `${formatAxisDate(dietGoal.endDate)} 종료`);
+
+    svg.setAttribute('aria-label',
+        `기간 동안 체중 변화 그래프: ${progress.startWeight}kg에서 ${progress.currentWeight}kg, 기록 ${progress.periodRecords.length}개`);
+}
+
+// 일별 기록 목록 (최근 날짜가 위, 전날 기록과 비교)
+function renderDietRecordList(progress) {
+    const listElement = document.getElementById('dietRecordList');
+    listElement.replaceChildren();
+
+    const records = progress ? progress.periodRecords : [];
+    if (records.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'px-3 py-4 text-center text-xs text-slate-400';
+        emptyItem.textContent = dietGoal === null ? '기간을 설정하면 기록이 여기에 쌓여요.' : '아직 기간 안에 기록이 없어요.';
+        listElement.appendChild(emptyItem);
+        return;
+    }
+
+    const allRecords = getBodyRecordsSorted();
+    [...records].reverse().forEach(record => {
+        const recordIndex = allRecords.findIndex(item => item.recordDate === record.recordDate);
+        const previousRecord = recordIndex > 0 ? allRecords[recordIndex - 1] : null;
+        const diffKg = previousRecord ? record.weight - previousRecord.weight : null;
+
+        const item = document.createElement('li');
+        item.className = 'flex items-center gap-2 px-3 py-2.5 text-xs bg-white dark:bg-slate-800';
+
+        const dateCell = document.createElement('span');
+        dateCell.className = 'w-[4.5rem] shrink-0 whitespace-nowrap font-medium text-slate-500';
+        dateCell.textContent = formatShortDate(record.recordDate);
+
+        const weightCell = document.createElement('span');
+        weightCell.className = 'flex-1 whitespace-nowrap font-bold text-slate-800 dark:text-slate-100';
+        weightCell.textContent = `${record.weight.toFixed(1)} kg`;
+
+        const diffCell = document.createElement('span');
+        diffCell.className = 'w-11 shrink-0 text-right font-bold';
+        if (diffKg === null || Math.abs(diffKg) < 0.05) {
+            diffCell.classList.add('text-slate-400');
+            diffCell.textContent = diffKg === null ? '-' : '0.0';
+        } else {
+            diffCell.classList.add(diffKg < 0 ? 'text-emerald-600' : 'text-rose-500');
+            diffCell.textContent = `${diffKg > 0 ? '+' : ''}${diffKg.toFixed(1)}`;
+        }
+
+        const bmiCell = document.createElement('span');
+        bmiCell.className = 'w-16 shrink-0 whitespace-nowrap text-right text-slate-500';
+        bmiCell.textContent = `BMI ${computeRecordBmi(record).toFixed(1)}`;
+
+        // 실수로 지우지 않도록 두 번 눌러야 삭제된다
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-9 shrink-0 text-right text-slate-400 hover:text-rose-500 font-bold whitespace-nowrap';
+        deleteButton.setAttribute('aria-label', `${formatShortDate(record.recordDate)} 기록 삭제`);
+        deleteButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        deleteButton.addEventListener('click', () => {
+            if (deleteButton.dataset.armed === 'true') {
+                deleteWeightLog(record.recordDate);
+                return;
+            }
+            deleteButton.dataset.armed = 'true';
+            deleteButton.textContent = '삭제?';
+            deleteButton.classList.add('text-rose-500');
+            setTimeout(() => {
+                if (!deleteButton.isConnected) return;
+                deleteButton.dataset.armed = 'false';
+                deleteButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+                deleteButton.classList.remove('text-rose-500');
+            }, 3000);
+        });
+
+        item.append(dateCell, weightCell, diffCell, bmiCell, deleteButton);
+        listElement.appendChild(item);
+    });
+}
+
+// 진행 일수 / 남은 일수 / 주당 변화
+function buildDietDayText(progress) {
+    if (dietGoal === null) return '기간을 정하고 매일 체중을 기록하면 변화가 보여요.';
+
+    const todayKey = getTodayKey();
+    const totalDays = getDaysBetween(dietGoal.startDate, dietGoal.endDate) + 1;
+    let dayText;
+    if (todayKey < dietGoal.startDate) {
+        dayText = `시작까지 ${getDaysBetween(todayKey, dietGoal.startDate)}일 남음 · 총 ${totalDays}일`;
+    } else if (todayKey > dietGoal.endDate) {
+        dayText = `기간 종료 · 총 ${totalDays}일`;
+    } else {
+        dayText = `${getDaysBetween(dietGoal.startDate, todayKey) + 1}일째 / 총 ${totalDays}일 · ${getDaysBetween(todayKey, dietGoal.endDate)}일 남음`;
+    }
+
+    if (progress !== null) {
+        const recordDays = getDaysBetween(progress.startRecord.recordDate, progress.latestRecord.recordDate);
+        dayText += ` · 기록 ${progress.periodRecords.length}회`;
+        if (recordDays >= 7) {
+            const weeklyKg = (progress.changeKg / recordDays) * 7;
+            dayText += ` · 주당 ${weeklyKg > 0 ? '+' : ''}${weeklyKg.toFixed(2)}kg`;
+        }
+    }
+    return dayText;
 }
 
 function renderDietSection() {
-    if (currentUser === null || dietGoal === null) return;
+    if (currentUser === null) return;
 
     const setText = (elementId, text) => {
         document.getElementById(elementId).textContent = text;
     };
-
-    setText('dietPeriodText', `(${dietGoal.startDate} ~ ${dietGoal.endDate}${dietGoal.isActive ? '' : ', 종료됨'})`);
-    drawWeightChart();
-
     const progress = calculateDietProgress();
-    if (progress === null) return;
 
-    const startBmi = computeRecordBmi(progress.startRecord);
-    const changeSign = progress.changeKg > 0 ? '+' : '';
+    setText('dietPeriodText', dietGoal === null
+        ? '다이어트 기간을 설정해 주세요'
+        : `${dietGoal.startDate} ~ ${dietGoal.endDate}`);
+    setText('dietDayText', buildDietDayText(progress));
 
-    setText('dietAchieveText', `${progress.percent}% 달성`);
-    document.getElementById('dietProgressBar').style.width = progress.percent + '%';
-    setText('dietChangeText', `${changeSign}${progress.changeKg.toFixed(1)} kg`);
-    setText('dietBurnedText', `약 ${estimateBurnedKcal(dietGoal.startDate, getTodayKey()).toLocaleString()} kcal`);
-    setText('dietBeforeWeightText', `${progress.startWeight.toFixed(1)} kg`);
-    setText('dietBeforeBmiText', `${startBmi.toFixed(1)} (${getBmiCategory(startBmi).label})`);
-    setText('dietTargetText', `${progress.targetWeight} kg`);
+    // 시작 / 현재 / 변화
+    const changeElement = document.getElementById('dietChangeText');
+    changeElement.classList.remove('text-emerald-600', 'text-rose-500');
+    if (progress !== null) {
+        setText('dietStartWeightText', `${progress.startWeight.toFixed(1)} kg`);
+        setText('dietCurrentWeightText', `${progress.currentWeight.toFixed(1)} kg`);
+        setText('dietChangeText', `${progress.changeKg > 0 ? '+' : ''}${progress.changeKg.toFixed(1)} kg`);
+        if (progress.changeKg < 0) changeElement.classList.add('text-emerald-600');
+        if (progress.changeKg > 0) changeElement.classList.add('text-rose-500');
+    } else {
+        ['dietStartWeightText', 'dietCurrentWeightText', 'dietChangeText'].forEach(elementId => setText(elementId, '-'));
+    }
+
+    drawWeightChart(progress);
+
+    // 현재 BMI: 기간 안 가장 최근 기록 → 없으면 전체 중 가장 최근 기록 → 없으면 신체 정보
+    const allRecords = getBodyRecordsSorted();
+    const latestRecord = progress !== null ? progress.latestRecord : allRecords[allRecords.length - 1];
+    const currentWeight = latestRecord ? latestRecord.weight : bodyProfile.weight;
+    const currentMetrics = computeBodyMetrics({ ...bodyProfile, weight: currentWeight });
+    renderBodyMetrics(currentMetrics);
+
+    // 현재 BMI 글자색: 저체중 파랑 / 정상 초록 / 과체중 주황 / 비만 빨강
+    const bmiColorClasses = {
+        '저체중': ['text-blue-600', 'dark:text-blue-400'],
+        '정상': ['text-emerald-600', 'dark:text-emerald-400'],
+        '과체중': ['text-amber-600', 'dark:text-amber-400'],
+        '비만': ['text-rose-600', 'dark:text-rose-400']
+    };
+    const bmiTextElement = document.getElementById('resBmiText');
+    Object.values(bmiColorClasses).flat().forEach(className => bmiTextElement.classList.remove(className));
+    bmiTextElement.classList.add(...bmiColorClasses[currentMetrics.label]);
+
+    if (progress !== null) {
+        const startBmi = computeRecordBmi(progress.startRecord);
+        const bmiDiff = currentMetrics.bmi - startBmi;
+        setText('dietBeforeBmiText',
+            `${startBmi.toFixed(1)} → ${currentMetrics.bmi.toFixed(1)} (${bmiDiff > 0 ? '+' : ''}${bmiDiff.toFixed(1)})`);
+    } else {
+        setText('dietBeforeBmiText', '-');
+    }
+
+    // 목표 달성도
+    if (progress !== null && progress.percent !== null) {
+        setText('dietAchieveText', `${progress.percent}% 달성`);
+        document.getElementById('dietProgressBar').style.width = progress.percent + '%';
+    } else {
+        setText('dietAchieveText', hasTargetWeight() ? '-' : '목표 체중 미설정');
+        document.getElementById('dietProgressBar').style.width = '0%';
+    }
+    setText('dietTargetText', hasTargetWeight() ? `${dietGoal.targetWeight} kg` : '-');
+
+    if (dietGoal !== null) {
+        const burnedEndKey = getTodayKey() < dietGoal.endDate ? getTodayKey() : dietGoal.endDate;
+        setText('dietBurnedText', `약 ${estimateBurnedKcal(dietGoal.startDate, burnedEndKey).toLocaleString()} kcal`);
+    } else {
+        setText('dietBurnedText', '-');
+    }
+
+    renderDietRecordList(progress);
+}
+
+// 기간 설정 칸 채우기 (목표가 없으면 오늘부터 30일)
+function fillDietPeriodForm() {
+    const todayKey = getTodayKey();
+    document.getElementById('periodStartDate').value = dietGoal ? dietGoal.startDate : todayKey;
+    document.getElementById('periodEndDate').value = dietGoal ? dietGoal.endDate : formatDateKey(addDays(new Date(), 29));
+    document.getElementById('periodTargetWeight').value = hasTargetWeight() ? dietGoal.targetWeight : '';
+
+    const logDateInput = document.getElementById('weightLogDate');
+    logDateInput.value = todayKey;
+    logDateInput.max = todayKey;
+    const latestRecord = getBodyRecordsSorted().pop();
+    document.getElementById('weightLogValue').placeholder = latestRecord ? String(latestRecord.weight) : String(bodyProfile.weight);
+}
+
+async function saveDietPeriod(event) {
+    event.preventDefault();
+    if (currentUser === null) return;
+
+    const startDate = document.getElementById('periodStartDate').value;
+    const endDate = document.getElementById('periodEndDate').value;
+    const targetText = document.getElementById('periodTargetWeight').value.trim();
+    const targetWeight = targetText === '' ? null : parseFloat(targetText);
+
+    if (!startDate || !endDate) {
+        showToast('시작일과 종료일을 모두 선택해 주세요.');
+        return;
+    }
+    if (startDate > endDate) {
+        showToast('종료일은 시작일보다 빠를 수 없어요.');
+        return;
+    }
+    if (targetWeight !== null && (!Number.isFinite(targetWeight) || targetWeight < 20 || targetWeight > 300)) {
+        showToast('목표 체중은 20~300kg 사이로 입력해 주세요.');
+        return;
+    }
+
+    dietGoal = {
+        goalId: dietGoal ? dietGoal.goalId : 1,
+        userId: currentUser.userId,
+        targetWeight: targetWeight,
+        startDate: startDate,
+        endDate: endDate,
+        isActive: getTodayKey() <= endDate
+    };
+
+    await saveStoredValue('dietGoal', dietGoal);
+    fillGoalForm();
+    renderDietSection();
+    renderMyPage();
+    showToast('다이어트 기간을 저장했어요.');
+}
+
+// 고른 날짜의 체중 기록을 새로 만들거나 덮어쓴다
+async function saveWeightLog(event) {
+    event.preventDefault();
+    if (currentUser === null) return;
+
+    const dateKey = document.getElementById('weightLogDate').value;
+    const weight = parseFloat(document.getElementById('weightLogValue').value);
+
+    if (!dateKey) {
+        showToast('날짜를 선택해 주세요.');
+        return;
+    }
+    if (dateKey > getTodayKey()) {
+        showToast('미래 날짜에는 기록할 수 없어요.');
+        return;
+    }
+    if (!Number.isFinite(weight) || weight < 20 || weight > 300) {
+        showToast('체중은 20~300kg 사이로 입력해 주세요.');
+        return;
+    }
+
+    const roundedWeight = Math.round(weight * 10) / 10;
+    const metrics = computeBodyMetrics({ ...bodyProfile, weight: roundedWeight });
+    const existingIndex = bodyRecords.findIndex(record => record.recordDate === dateKey);
+    const record = {
+        bodyRecordId: existingIndex >= 0
+            ? bodyRecords[existingIndex].bodyRecordId
+            : bodyRecords.reduce((maxId, item) => Math.max(maxId, item.bodyRecordId || 0), 0) + 1,
+        userId: currentUser.userId,
+        recordDate: dateKey,
+        height: bodyProfile.height,
+        weight: roundedWeight,
+        bmi: Number(metrics.bmi.toFixed(2)),
+        bmr: Math.round(metrics.bmr)
+    };
+
+    if (existingIndex >= 0) {
+        bodyRecords[existingIndex] = record;
+    } else {
+        bodyRecords.push(record);
+    }
+    bodyRecords.sort((a, b) => a.recordDate.localeCompare(b.recordDate));
+
+    await afterWeightRecordsChanged();
+    document.getElementById('weightLogValue').value = '';
+    showToast(`${formatShortDate(dateKey)} 체중 ${roundedWeight}kg을 기록했어요.`);
+}
+
+async function deleteWeightLog(dateKey) {
+    bodyRecords = bodyRecords.filter(record => record.recordDate !== dateKey);
+    await afterWeightRecordsChanged();
+    showToast(`${formatShortDate(dateKey)} 기록을 삭제했어요.`);
+}
+
+// 가장 최근 기록을 지금 몸무게로 삼고, 저장한 뒤 화면을 다시 그린다
+async function afterWeightRecordsChanged() {
+    const latestRecord = getBodyRecordsSorted().pop();
+    if (latestRecord) bodyProfile = { ...bodyProfile, weight: latestRecord.weight };
+
+    await Promise.all([
+        saveStoredValue('bodyProfile', bodyProfile),
+        saveStoredValue('bodyRecords', bodyRecords)
+    ]);
+
+    applyBodyProfileToInputs();
+    fillDietPeriodForm();
+    renderDietSection();
+    renderMyPage();
+    renderBmrAnalysis();
 }
 
 /* ==========================================
@@ -2216,8 +2564,16 @@ function renderMyPage() {
     // 다이어트 목표 진행
     const progress = calculateDietProgress();
     if (progress !== null) {
-        setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
-        document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+        if (progress.percent !== null) {
+            setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
+            document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+        } else {
+            setText('goalProgressText', `현재 ${progress.currentWeight}kg (목표 체중을 정하면 달성도가 보여요)`);
+            document.getElementById('goalProgressBar').style.width = '0%';
+        }
+    } else {
+        setText('goalProgressText', '아직 설정한 목표가 없어요');
+        document.getElementById('goalProgressBar').style.width = '0%';
     }
 
     // 운동 통계
@@ -2232,7 +2588,14 @@ function renderMyPage() {
 }
 
 function fillGoalForm() {
-    if (dietGoal === null) return;
+    if (dietGoal === null) {
+        // 목표가 없으면 다른 계정의 값이 남지 않도록 입력칸을 비운다
+        ['goalTargetWeight', 'goalStartDate', 'goalEndDate'].forEach(elementId => {
+            document.getElementById(elementId).value = '';
+        });
+        document.getElementById('goalIsActive').checked = true;
+        return;
+    }
 
     document.getElementById('goalTargetWeight').value = dietGoal.targetWeight;
     document.getElementById('goalStartDate').value = dietGoal.startDate;
@@ -2272,6 +2635,7 @@ async function saveDietGoal(event) {
     };
 
     await saveStoredValue('dietGoal', dietGoal);
+    fillDietPeriodForm();
     renderDietSection();
     renderMyPage();
     showToast('다이어트 목표가 저장되었습니다.');
@@ -2299,17 +2663,16 @@ async function handleResetData() {
     userDataKeys.forEach(name => removeStorage(getUserKey(name)));
 
     // 예시 데이터로 되돌리는 게 아니라 정말 비운다: 운동 기록 / 운동일지 / GPS 기록은 0건,
-    // 신체 기록은 오늘 값 1건만 남기고, 목표는 기본값으로 다시 만든다.
+    // 신체 기록은 지금 신체 정보(초기값 설정에서 받은 값)로 오늘 값 1건만 남기고, 다이어트 목표는 없앤다.
     workoutState = {};
     workoutLogs = [];
     nextRoutineId = 1;
     exerciseLogs = {};
     gpsLogs = [];
     nextExerciseLogId = 1;
-    bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
     bodyRecords = [];
     saveBodyRecord(bodyProfile, computeBodyMetrics(bodyProfile));
-    dietGoal = buildMockDietGoal();
+    dietGoal = null;
 
     await Promise.all([
         persistWorkoutState(),
@@ -2326,6 +2689,7 @@ async function handleResetData() {
     isWorkoutCustom = true;
     refreshAllViews();
     fillGoalForm();
+    fillDietPeriodForm();
     renderBmrAnalysis();
     showToast('내 기록을 모두 삭제했어요.');
 }
@@ -2432,6 +2796,8 @@ function bindFeatureEvents() {
 
     // 마이페이지
     document.getElementById('goalForm').addEventListener('submit', saveDietGoal);
+    document.getElementById('dietPeriodForm').addEventListener('submit', saveDietPeriod);
+    document.getElementById('weightLogForm').addEventListener('submit', saveWeightLog);
     document.getElementById('darkModeSwitch').addEventListener('click', toggleDarkMode);
     document.getElementById('logoutButton').addEventListener('click', logout);
     document.getElementById('resetDataButton').addEventListener('click', handleResetData);

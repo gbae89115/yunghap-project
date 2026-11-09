@@ -113,18 +113,18 @@
                             <h2 class="text-xl font-bold mt-1.5" id="todayBannerDate">2026년 10월 7일 (수)</h2>
                         </div>
                         <div class="text-right">
-                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">66%</span>
+                            <span class="text-3xl font-black text-amber-300" id="todayPercentText">0%</span>
                         </div>
                     </div>
 
                     <!-- Progress Bar -->
                     <div class="w-full bg-black/20 rounded-full h-3 overflow-hidden p-0.5 backdrop-blur-md">
-                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 66%;"></div>
+                        <div id="todayProgressBar" class="bg-amber-300 h-2 rounded-full transition-all duration-500 shadow-sm" style="width: 0%;"></div>
                     </div>
 
                     <div class="flex justify-between text-xs text-blue-100 dark:text-slate-300 mt-3 font-medium">
-                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>3개 중 2개 완료</span>
-                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">340</span> kcal 소모</span>
+                        <span id="todayTaskSummary"><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>0개 중 0개 완료</span>
+                        <span class="text-amber-200"><i class="fa-solid fa-fire text-amber-400 mr-1"></i><span id="todayKcalText">0</span> kcal 소모</span>
                     </div>
                 </div>
 
@@ -201,20 +201,20 @@
                     <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">거리</span>
-                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">5.2</span><span class="metric-unit">km</span></div>
+                            <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">0.0</span><span class="metric-unit">km</span></div>
                         </div>
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">시간</span>
-                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:28:40</span></div>
+                            <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:00:00</span></div>
                         </div>
                         <div class="text-center px-1 min-w-0">
                             <span class="text-[11px] font-bold text-slate-400 uppercase block">칼로리</span>
-                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">415</span><span class="metric-unit">kcal</span></div>
+                            <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">0</span><span class="metric-unit">kcal</span></div>
                         </div>
                     </div>
 
                     <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
-                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">5'27"</strong> /km</div>
+                        <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">-</strong> /km</div>
                         <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
                     </div>
                 </div>
@@ -356,26 +356,73 @@
                     </button>
                 </div>
 
-                <!-- Diet Period Comparison & SVG Chart Card -->
+                <!-- 다이어트 기간 비교: 기간 설정 → 일일 체중 기록 → 기간 동안의 변화 + 현재 BMI -->
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-4">
                     <div class="text-center border-b border-slate-100 dark:border-slate-700/60 pb-2">
                         <h3 class="text-base font-extrabold text-slate-800 dark:text-slate-100">다이어트 기간 비교</h3>
-                        <p id="dietPeriodText" class="text-xs text-slate-400">(최근 6개월 체중 변화 및 BMI 분석)</p>
+                        <p id="dietPeriodText" class="text-xs text-slate-400">다이어트 기간을 설정해 주세요</p>
                     </div>
 
-                    <!-- Weight Change SVG Chart -->
+                    <!-- 1. 기간 설정 -->
+                    <form id="dietPeriodForm" class="space-y-2" novalidate>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-regular fa-calendar text-brand-500" aria-hidden="true"></i> 다이어트 기간
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label for="periodStartDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">시작일</label><input type="date" id="periodStartDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                            <div><label for="periodEndDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">종료일</label><input type="date" id="periodEndDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 items-end">
+                            <div class="col-span-2"><label for="periodTargetWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표 체중 (kg, 선택)</label><input type="number" id="periodTargetWeight" step="0.1" min="20" max="300" inputmode="decimal" placeholder="비워 둬도 돼요" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 rounded-xl text-xs shadow transition">기간 저장</button>
+                        </div>
+                    </form>
+
+                    <!-- 2. 일일 체중 기록 -->
+                    <form id="weightLogForm" class="space-y-2 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60" novalidate>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-weight-scale text-brand-500" aria-hidden="true"></i> 오늘의 체중 기록
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label for="weightLogDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">날짜</label><input type="date" id="weightLogDate" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                            <div><label for="weightLogValue" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">체중 (kg)</label><input type="number" id="weightLogValue" step="0.1" min="20" max="300" inputmode="decimal" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">체중 기록하기</button>
+                        <p class="text-[11px] text-slate-400">같은 날짜에 다시 기록하면 그날 기록이 바뀌어요.</p>
+                    </form>
+
+                    <!-- 3. 기간 동안의 변화 요약 -->
+                    <div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60">
+                                <p class="text-[10px] font-bold text-slate-500">시작 체중</p>
+                                <p class="text-sm font-black text-slate-800 dark:text-slate-100" id="dietStartWeightText">-</p>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60">
+                                <p class="text-[10px] font-bold text-slate-500">현재 체중</p>
+                                <p class="text-sm font-black text-slate-800 dark:text-slate-100" id="dietCurrentWeightText">-</p>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-2.5 border border-slate-200 dark:border-slate-700/60">
+                                <p class="text-[10px] font-bold text-slate-500">변화</p>
+                                <p class="text-sm font-black text-slate-800 dark:text-slate-100" id="dietChangeText">-</p>
+                            </div>
+                        </div>
+                        <p id="dietDayText" class="mt-2 text-[11px] text-center font-medium text-slate-500 dark:text-slate-400">-</p>
+                    </div>
+
+                    <!-- 기간 안 일일 체중 그래프 -->
                     <div>
                         <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-                            <i class="fa-solid fa-chart-line text-brand-500"></i> 체중 변화 추이 (kg)
+                            <i class="fa-solid fa-chart-line text-brand-500" aria-hidden="true"></i> 기간 동안의 체중 변화 (kg)
                         </h4>
                         <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60">
-                            <svg id="weightChartSvg" viewBox="0 0 300 110" class="w-full h-auto overflow-visible" role="img" aria-label="체중 변화 그래프"></svg>
+                            <svg id="weightChartSvg" viewBox="0 0 300 120" class="w-full h-auto overflow-visible" role="img" aria-label="체중 변화 그래프"></svg>
                         </div>
                     </div>
 
-                    <!-- BMI Gauge Meter SVG -->
+                    <!-- 현재 BMI (가장 최근 체중 기록 기준) -->
                     <div class="pt-2">
-                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 text-center">BMI 수치 판정 게이지</h4>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 text-center">현재 BMI 판정 게이지</h4>
                         <div class="relative w-48 mx-auto">
                             <svg viewBox="0 0 200 115" class="w-full">
                                 <path d="M 20 100 A 80 80 0 0 1 60 30.7" fill="none" stroke="#ef4444" stroke-width="18" />
@@ -398,46 +445,43 @@
                         </div>
                     </div>
 
-                    <!-- Calculated Result Numbers -->
                     <div class="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs space-y-2 text-slate-700 dark:text-slate-200">
                         <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">현재 계산된 BMI 수치:</span>
-                            <span class="font-bold text-emerald-600 dark:text-emerald-400" id="resBmiText">23.7 (정상)</span>
+                            <span class="font-medium text-slate-500">현재 BMI:</span>
+                            <span class="font-bold" id="resBmiText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">시작 BMI → 현재 BMI:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeBmiText">-</span>
                         </div>
                         <div class="flex justify-between items-center gap-2">
                             <span class="font-medium text-slate-500">기초대사량 (BMR):</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">1,695 kcal</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="resBmrText">-</span>
                         </div>
                         <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">현재 달성도:</span>
+                            <span class="font-medium text-slate-500">목표 체중:</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietTargetText">-</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-medium text-slate-500">목표 달성도:</span>
                             <span class="font-bold text-brand-600 dark:text-brand-400" id="dietAchieveText">-</span>
                         </div>
                         <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden" role="presentation">
                             <div id="dietProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
                         </div>
                         <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">체중 변화:</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietChangeText">-</span>
-                        </div>
-                        <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">현재 총 소모 칼로리:</span>
+                            <span class="font-medium text-slate-500">기간 동안 소모 칼로리:</span>
                             <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBurnedText">-</span>
-                        </div>
-                        <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">다이어트 전 체중:</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeWeightText">-</span>
-                        </div>
-                        <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">다이어트 전 BMI:</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietBeforeBmiText">-</span>
-                        </div>
-                        <div class="flex justify-between items-center gap-2">
-                            <span class="font-medium text-slate-500">목표 체중:</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-100" id="dietTargetText">-</span>
                         </div>
                     </div>
 
-                    <button type="button" onclick="switchTab('tab-today')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">확인</button>
+                    <!-- 4. 일별 기록 목록 (최근 날짜가 위) -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-list text-brand-500" aria-hidden="true"></i> 일별 체중 기록
+                        </h4>
+                        <ul id="dietRecordList" class="rounded-xl border border-slate-200 dark:border-slate-700/60 divide-y divide-slate-100 dark:divide-slate-700/60 overflow-hidden"></ul>
+                    </div>
                 </div>
 
             </section>
