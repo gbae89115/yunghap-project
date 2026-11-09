@@ -202,6 +202,178 @@ body {
 
 .clock-finished { color: #dc2626 !important; }
 
+/* ==========================================
+   타이머 / 스톱워치 전체 화면
+   ========================================== */
+.clock-screen-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px 16px;
+    background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 55%);
+    color: #0f172a;
+}
+.dark .clock-screen-inner {
+    background: radial-gradient(120% 80% at 85% 65%, #172554 0%, #0b1120 55%, #020617 100%);
+    color: #f8fafc;
+}
+.clock-topbar { display: flex; align-items: center; justify-content: space-between; height: 48px; flex-shrink: 0; }
+.clock-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: inherit;
+}
+button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
+.clock-title { font-size: 16px; font-weight: 800; }
+
+/* 진행 화면 (원 + 숫자 + 구간 기록) */
+.clock-dial-area { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.clock-dial-area[hidden] { display: none; }
+.clock-dial-area.has-laps { justify-content: flex-start; padding-top: 8px; }
+.clock-dial { position: relative; width: min(300px, 80vw); aspect-ratio: 1; flex-shrink: 0; container-type: inline-size; transition: width 0.25s ease; }
+.clock-dial-area.has-laps .clock-dial { width: min(220px, 58vw); }
+.clock-dial-svg { display: block; width: 100%; height: 100%; }
+.clock-tick { stroke: #cbd5e1; stroke-width: 2; stroke-linecap: round; }
+.clock-tick--major { stroke: #94a3b8; stroke-width: 3; }
+.clock-dial-face { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1; }
+.clock-dial-track { fill: none; stroke: #e2e8f0; stroke-width: 8; }
+.clock-dial-progress { fill: none; stroke: #2563eb; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+.clock-dial-hand line { stroke: #2563eb; stroke-width: 3; stroke-linecap: round; }
+.clock-dial-hand circle { fill: #2563eb; }
+.dark .clock-tick { stroke: #334155; }
+.dark .clock-tick--major { stroke: #94a3b8; }
+.dark .clock-dial-face { fill: #1e293b; stroke: #334155; }
+.dark .clock-dial-track { stroke: #1e293b; }
+.dark .clock-dial-progress { stroke: #60a5fa; }
+.dark .clock-dial-hand line { stroke: #60a5fa; }
+.dark .clock-dial-hand circle { fill: #60a5fa; }
+.clock-dial-area[data-mode="stopwatch"] #clockTrack,
+.clock-dial-area[data-mode="stopwatch"] #clockProgress,
+.clock-dial-area[data-mode="timer"] #clockTicks,
+.clock-dial-area[data-mode="timer"] #clockHand { display: none; }
+.clock-digits {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15cqw;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    pointer-events: none;
+}
+.clock-digits.is-long { font-size: 12cqw; }
+
+.clock-laps { width: 100%; flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0 8px; list-style: none; }
+.clock-laps:empty { display: none; }
+.clock-lap {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 12px 4px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+.clock-lap-name { color: #64748b; }
+.clock-lap-split { text-align: center; color: #64748b; }
+.clock-lap-total { text-align: right; font-weight: 700; }
+.dark .clock-lap { border-bottom-color: #1e293b; }
+.dark .clock-lap-name,
+.dark .clock-lap-split { color: #94a3b8; }
+
+/* 타이머 시간 설정 (위아래 스크롤 휠) */
+.clock-setup { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+.clock-setup[hidden] { display: none; }
+.time-picker { display: flex; justify-content: center; align-items: flex-end; gap: 2px; }
+.time-picker-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.time-picker-label { font-size: 14px; font-weight: 600; color: #64748b; }
+.time-picker-scroll {
+    height: 228px;
+    width: 88px;
+    padding: 76px 0;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+    outline: none;
+}
+.time-picker-scroll::-webkit-scrollbar { display: none; }
+.time-picker-scroll:focus-visible { box-shadow: inset 0 0 0 2px #2563eb; border-radius: 16px; }
+.time-picker-item {
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 56px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #cbd5e1;
+    cursor: pointer;
+    user-select: none;
+}
+.time-picker-item.is-selected { color: #0f172a; }
+.time-picker-colon { height: 228px; display: flex; align-items: center; font-size: 44px; font-weight: 800; padding-bottom: 6px; }
+.dark .time-picker-label { color: #94a3b8; }
+.dark .time-picker-item { color: #334155; }
+.dark .time-picker-item.is-selected { color: #f8fafc; }
+
+.clock-presets { display: flex; gap: 10px; overflow-x: auto; padding: 2px 4px; scrollbar-width: none; }
+.clock-presets::-webkit-scrollbar { display: none; }
+.clock-preset {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+    border-radius: 9999px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #334155;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.clock-preset[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+.clock-preset:disabled { opacity: 0.5; cursor: not-allowed; }
+.dark .clock-preset { border-color: #334155; background: #1e293b; color: #e2e8f0; }
+.dark .clock-preset[aria-pressed="true"] { border-color: #60a5fa; background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+
+/* 메시지, 큰 동그란 버튼, 아래쪽 모드 전환 */
+.clock-message { min-height: 20px; margin: 4px 0; text-align: center; font-size: 13px; color: #64748b; flex-shrink: 0; }
+.dark .clock-message { color: #94a3b8; }
+.clock-actions { display: flex; justify-content: space-between; align-items: center; padding: 0 16px; height: 116px; flex-shrink: 0; }
+.clock-actions.is-single { justify-content: center; }
+.clock-round-btn {
+    width: 104px;
+    height: 104px;
+    border-radius: 9999px;
+    font-size: 18px;
+    font-weight: 800;
+    transition: transform 0.1s ease, opacity 0.2s ease;
+}
+.clock-round-btn:active:not(:disabled) { transform: scale(0.96); }
+.clock-round-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.clock-round-btn[hidden] { display: none; }
+.clock-round-btn--primary { background: #2563eb; color: #ffffff; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3); }
+.clock-round-btn--secondary { background: #e2e8f0; color: #334155; }
+.dark .clock-round-btn--primary { background: rgba(59, 130, 246, 0.28); color: #bfdbfe; box-shadow: none; }
+.dark .clock-round-btn--secondary { background: #1e293b; color: #e2e8f0; }
+
+.clock-mode-bar { display: flex; gap: 4px; margin: 12px auto 0; padding: 6px; border-radius: 9999px; background: #e2e8f0; flex-shrink: 0; }
+.dark .clock-mode-bar { background: #0f172a; box-shadow: inset 0 0 0 1px #1e293b; }
+.clock-mode-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 9999px; font-size: 14px; font-weight: 700; color: #64748b; }
+.clock-mode-btn[aria-pressed="true"] { background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+.dark .clock-mode-btn { color: #94a3b8; }
+.dark .clock-mode-btn[aria-pressed="true"] { background: #334155; color: #f8fafc; box-shadow: none; }
+
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
 }
