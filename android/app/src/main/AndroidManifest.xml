@@ -18,7 +18,12 @@
             android:name=".MainActivity"
             android:theme="@style/Theme.RoutineNote.Starting"
             android:exported="true"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
             android:windowSoftInputMode="adjustResize">
+            <!-- screenOrientation: 세로 화면으로 고정 (화면이 세로 폰 기준으로 디자인됨)
+                 configChanges: 화면 회전·화면 분할·다크 모드 전환 때 앱(웹뷰)을 다시 만들지 않는다
+                 → 스톱워치, 러닝 기록, 보던 탭이 그대로 유지된다 -->
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
