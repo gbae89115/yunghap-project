@@ -110,6 +110,15 @@ app.post('/api/workout/gps', async (req, res) => {
 // ==========================================
 const APP_URL = 'https://appassets.androidplatform.net/assets/index.html';
 
+// 앱 주소로 돌아가기: 서버 리다이렉트 대신 페이지에서 이동해야 앱이 가로챌 수 있다
+function backToApp(res, hash) {
+  const target = `${APP_URL}#${hash}`;
+  res.send(`<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;text-align:center;padding-top:40vh">로그인 처리 중...
+<script>location.replace(${JSON.stringify(target)});</script></body></html>`);
+}
+
 // 4-1. 앱이 이 주소로 오면 카카오 로그인 페이지로 보낸다
 app.get('/api/auth/kakao/login', (req, res) => {
   const params = new URLSearchParams({
@@ -124,7 +133,7 @@ app.get('/api/auth/kakao/login', (req, res) => {
 app.get('/api/auth/kakao/callback', async (req, res) => {
   const { code, error } = req.query;
   if (error || !code) {
-    return res.redirect(`${APP_URL}#kakaoError=${encodeURIComponent(error || 'no_code')}`);
+    return backToApp(res, `kakaoError=${encodeURIComponent(error || 'no_code')}`);
   }
 
   try {
@@ -161,10 +170,10 @@ app.get('/api/auth/kakao/callback', async (req, res) => {
 
     // (4) 앱으로 돌려보내기
     const payload = encodeURIComponent(JSON.stringify({ userId, nickname }));
-    res.redirect(`${APP_URL}#kakaoLogin=${payload}`);
+    backToApp(res, `kakaoLogin=${payload}`);
   } catch (e) {
     console.error('Kakao login error:', e.message);
-    res.redirect(`${APP_URL}#kakaoError=login_failed`);
+    backToApp(res, 'kakaoError=login_failed');
   }
 });
 
