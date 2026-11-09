@@ -1346,6 +1346,7 @@ function switchTab(tabId) {
     }
 
     if (tabId === 'tab-mypage') {
+        applyBodyProfileToInputs(); // 저장하지 않고 나갔던 입력값은 지우고 지금 신체 정보로 다시 채운다
         fillGoalForm();
         renderMyPage();
     }
@@ -2076,6 +2077,10 @@ function renderDietSection() {
     };
     const progress = calculateDietProgress();
 
+    // 내 신체 정보 요약 (수정은 마이페이지에서)
+    setText('bodySummaryText',
+        `${bodyProfile.gender === 'male' ? '남성' : '여성'} · ${bodyProfile.age}세 · ${bodyProfile.height}cm · ${bodyProfile.weight}kg`);
+
     setText('dietPeriodText', dietGoal === null
         ? '다이어트 기간을 설정해 주세요'
         : `${dietGoal.startDate} ~ ${dietGoal.endDate}`);
@@ -2555,9 +2560,6 @@ function renderMyPage() {
         : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`;
 
     // 신체 정보
-    setText('myBodyBasis', `${bodyProfile.gender === 'male' ? '남성' : '여성'}, ${bodyProfile.age}세`);
-    setText('myHeight', `${bodyProfile.height} cm`);
-    setText('myWeight', `${bodyProfile.weight} kg`);
     setText('myBmi', `${metrics.bmi.toFixed(1)} (${metrics.label})`);
     setText('myBmr', `${Math.round(metrics.bmr).toLocaleString()} kcal`);
 
