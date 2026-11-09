@@ -32,9 +32,10 @@ let selectedGender = "male";
 // GPS Running State
 let isRunning = false;
 let runTimerInterval = null;
-let secondsElapsed = 1720; // 00:28:40
-let distanceKm = 5.2;
-let caloriesBurned = 415;
+// 러닝 기록은 0에서 시작한다 (예전 예시값: 00:28:40 / 5.2km / 415kcal)
+let secondsElapsed = 0;
+let distanceKm = 0;
+let caloriesBurned = 0;
 
 // Kakao Map Instances
 let kakaoMapInstance = null;
@@ -1054,6 +1055,11 @@ function findAccount(userId) {
 }
 
 // 서버의 테스트 사용자(testuser)와 같은 아이디를 미리 만들어 둔다
+// 예시 데이터는 시연용 계정(testuser)에만 채운다. 새로 가입한 사용자는 빈 데이터로 시작한다.
+function isDemoUser() {
+    return currentUser !== null && currentUser.userId === demoUserId;
+}
+
 function ensureDemoAccount() {
     if (findAccount(demoUserId) !== null) return;
 
@@ -1250,7 +1256,7 @@ function logout() {
     showLoginScreen();
 }
 
-// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 예시 데이터)
+// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 빈 데이터, 시연용 계정만 예시 데이터)
 async function loadUserData() {
     const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
         requestStoredValue('profileName', ''),
@@ -1267,13 +1273,17 @@ async function loadUserData() {
         ? storedProfile
         : { gender: 'male', age: 28, height: 175, weight: 72.5 };
 
-    bodyRecords = Array.isArray(storedRecords) && storedRecords.length > 0
-        ? storedRecords
-        : buildMockBodyRecords();
+    if (Array.isArray(storedRecords) && storedRecords.length > 0) {
+        bodyRecords = storedRecords;
+    } else {
+        bodyRecords = isDemoUser() ? buildMockBodyRecords() : [];
+    }
 
-    dietGoal = storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)
-        ? storedGoal
-        : buildMockDietGoal();
+    if (storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)) {
+        dietGoal = storedGoal;
+    } else {
+        dietGoal = isDemoUser() ? buildMockDietGoal() : null; // 새 사용자는 목표 없음
+    }
 
     exerciseLogs = storedLogs && typeof storedLogs === 'object' && !Array.isArray(storedLogs)
         ? storedLogs
@@ -1424,7 +1434,7 @@ async function getWorkoutState(userId) {
     // }
     // return await response.json();
 
-    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 예시 데이터를 만든다
+    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 빈 기록 (시연용 계정만 예시 데이터)
     const storedWorkout = await requestStoredValue('workout', null);
 
     if (storedWorkout && storedWorkout.isCustom && storedWorkout.state) {
@@ -1435,6 +1445,7 @@ async function getWorkoutState(userId) {
     }
 
     isWorkoutCustom = false;
+    if (!isDemoUser()) return {};
     return await requestWorkoutData(userId);
 }
 
@@ -1894,11 +1905,21 @@ function drawWeightChart() {
 }
 
 function renderDietSection() {
-    if (currentUser === null || dietGoal === null) return;
+    if (currentUser === null) return;
 
     const setText = (elementId, text) => {
         document.getElementById(elementId).textContent = text;
     };
+
+    // 목표가 아직 없으면 체중 그래프만 그리고, 진행률 칸은 비워 둔다
+    if (dietGoal === null) {
+        setText('dietPeriodText', '(아직 다이어트 목표가 없어요. 마이페이지에서 설정해 보세요)');
+        drawWeightChart();
+        ['dietAchieveText', 'dietChangeText', 'dietBurnedText', 'dietBeforeWeightText', 'dietBeforeBmiText', 'dietTargetText']
+            .forEach(elementId => setText(elementId, '-'));
+        document.getElementById('dietProgressBar').style.width = '0%';
+        return;
+    }
 
     setText('dietPeriodText', `(${dietGoal.startDate} ~ ${dietGoal.endDate}${dietGoal.isActive ? '' : ', 종료됨'})`);
     drawWeightChart();
@@ -2218,6 +2239,9 @@ function renderMyPage() {
     if (progress !== null) {
         setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
         document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+    } else {
+        setText('goalProgressText', '아직 설정한 목표가 없어요');
+        document.getElementById('goalProgressBar').style.width = '0%';
     }
 
     // 운동 통계
@@ -2232,7 +2256,14 @@ function renderMyPage() {
 }
 
 function fillGoalForm() {
-    if (dietGoal === null) return;
+    if (dietGoal === null) {
+        // 목표가 없으면 다른 계정의 값이 남지 않도록 입력칸을 비운다
+        ['goalTargetWeight', 'goalStartDate', 'goalEndDate'].forEach(elementId => {
+            document.getElementById(elementId).value = '';
+        });
+        document.getElementById('goalIsActive').checked = true;
+        return;
+    }
 
     document.getElementById('goalTargetWeight').value = dietGoal.targetWeight;
     document.getElementById('goalStartDate').value = dietGoal.startDate;
@@ -2299,17 +2330,16 @@ async function handleResetData() {
     userDataKeys.forEach(name => removeStorage(getUserKey(name)));
 
     // 예시 데이터로 되돌리는 게 아니라 정말 비운다: 운동 기록 / 운동일지 / GPS 기록은 0건,
-    // 신체 기록은 오늘 값 1건만 남기고, 목표는 기본값으로 다시 만든다.
+    // 신체 기록은 지금 신체 정보(초기값 설정에서 받은 값)로 오늘 값 1건만 남기고, 다이어트 목표는 없앤다.
     workoutState = {};
     workoutLogs = [];
     nextRoutineId = 1;
     exerciseLogs = {};
     gpsLogs = [];
     nextExerciseLogId = 1;
-    bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
     bodyRecords = [];
     saveBodyRecord(bodyProfile, computeBodyMetrics(bodyProfile));
-    dietGoal = buildMockDietGoal();
+    dietGoal = null;
 
     await Promise.all([
         persistWorkoutState(),
