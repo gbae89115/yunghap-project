@@ -752,43 +752,78 @@
             </div>
         </div>
 
-        <!-- 타이머 / 스톱워치 모달 (와이어프레임 23번) -->
-        <div id="timerModal" inert role="dialog" aria-modal="true" aria-labelledby="timerModalTitle" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-            <div class="bg-white dark:bg-slate-800 w-full max-w-xs rounded-2xl shadow-2xl overflow-hidden">
+        <!-- 타이머 / 스톱워치 화면 (와이어프레임 23번) — 작은 모달이 아니라 전체 화면으로 연다 -->
+        <div id="timerModal" inert role="dialog" aria-modal="true" aria-labelledby="timerModalTitle" class="clock-screen absolute inset-0 z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+            <div class="clock-screen-inner">
 
-                <div class="bg-brand-600 dark:bg-slate-900 text-white px-4 py-3 flex justify-between items-center border-b border-white/10">
-                    <h3 class="font-bold text-xs flex items-center gap-1.5" id="timerModalTitle">
-                        <i class="fa-regular fa-clock" aria-hidden="true"></i> 타이머 / 스톱워치
-                    </h3>
-                    <button type="button" onclick="closeTimerModal()" aria-label="닫기" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center text-white text-base transition">
-                        &times;
+                <div class="clock-topbar">
+                    <button type="button" onclick="closeTimerModal()" aria-label="뒤로" class="clock-icon-btn">
+                        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
                     </button>
+                    <h3 id="timerModalTitle" class="clock-title">스톱워치</h3>
+                    <span class="clock-icon-btn" aria-hidden="true"></span>
                 </div>
 
-                <div class="p-4 space-y-3">
-                    <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl" role="group" aria-label="시계 종류">
-                        <button type="button" class="seg-btn" id="modeStopwatchButton" aria-pressed="true">스톱워치</button>
-                        <button type="button" class="seg-btn" id="modeTimerButton" aria-pressed="false">타이머</button>
+                <!-- 진행 화면: 눈금 원(스톱워치) / 남은 시간 원(타이머) + 큰 숫자 -->
+                <div id="clockDialArea" class="clock-dial-area" data-mode="stopwatch">
+                    <div class="clock-dial">
+                        <svg viewBox="0 0 300 300" class="clock-dial-svg" aria-hidden="true">
+                            <g id="clockTicks"></g>
+                            <circle id="clockTrack" cx="150" cy="150" r="138" class="clock-dial-track"/>
+                            <circle id="clockProgress" cx="150" cy="150" r="138" class="clock-dial-progress" transform="rotate(-90 150 150)"/>
+                            <circle cx="150" cy="150" r="120" class="clock-dial-face"/>
+                            <g id="clockHand" class="clock-dial-hand">
+                                <line x1="150" y1="164" x2="150" y2="12"/>
+                                <circle cx="150" cy="150" r="7"/>
+                            </g>
+                        </svg>
+                        <p id="clockDisplay" role="timer" class="clock-digits"><span id="clockMain">00:00</span><span id="clockFraction">.00</span></p>
                     </div>
+                    <ol id="lapList" class="clock-laps" aria-label="구간 기록"></ol>
+                </div>
 
-                    <p id="clockDisplay" role="timer" class="text-center text-5xl font-black tabular-nums text-slate-800 dark:text-slate-100 py-3">00:00:00</p>
-
-                    <!-- 타이머 모드에서만 보이는 휴식 시간 선택 -->
-                    <div id="presetRow" class="hidden">
-                        <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="휴식 시간 선택">
-                            <button type="button" class="preset-btn" data-seconds="30">30초</button>
-                            <button type="button" class="preset-btn" data-seconds="60">1분</button>
-                            <button type="button" class="preset-btn" data-seconds="180">3분</button>
-                            <button type="button" class="preset-btn" data-seconds="300">5분</button>
+                <!-- 타이머 시간 설정: 시/분/초를 위아래로 스크롤 (칸은 app.js 에서 채운다) -->
+                <div id="timerSetupArea" class="clock-setup" hidden>
+                    <div id="timePicker" class="time-picker" role="group" aria-label="타이머 시간 설정">
+                        <div class="time-picker-col">
+                            <span class="time-picker-label">시간</span>
+                            <div class="time-picker-scroll" data-unit="hours" data-max="23" role="spinbutton" tabindex="0" aria-label="시간"></div>
+                        </div>
+                        <span class="time-picker-colon" aria-hidden="true">:</span>
+                        <div class="time-picker-col">
+                            <span class="time-picker-label">분</span>
+                            <div class="time-picker-scroll" data-unit="minutes" data-max="59" role="spinbutton" tabindex="0" aria-label="분"></div>
+                        </div>
+                        <span class="time-picker-colon" aria-hidden="true">:</span>
+                        <div class="time-picker-col">
+                            <span class="time-picker-label">초</span>
+                            <div class="time-picker-scroll" data-unit="seconds" data-max="59" role="spinbutton" tabindex="0" aria-label="초"></div>
                         </div>
                     </div>
 
-                    <p id="clockMessage" role="status" class="text-center text-xs text-slate-500 dark:text-slate-400 min-h-[16px]"></p>
-
-                    <div class="grid grid-cols-3 gap-2">
-                        <button type="button" id="clockToggleButton" class="col-span-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">시작</button>
-                        <button type="button" id="clockResetButton" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition">초기화</button>
+                    <div id="presetRow" class="clock-presets" role="group" aria-label="자주 쓰는 시간">
+                        <button type="button" class="clock-preset" data-seconds="30">00:00:30</button>
+                        <button type="button" class="clock-preset" data-seconds="60">00:01:00</button>
+                        <button type="button" class="clock-preset" data-seconds="180">00:03:00</button>
+                        <button type="button" class="clock-preset" data-seconds="300">00:05:00</button>
+                        <button type="button" class="clock-preset" data-seconds="600">00:10:00</button>
                     </div>
+                </div>
+
+                <p id="clockMessage" role="status" class="clock-message"></p>
+
+                <div id="clockActions" class="clock-actions">
+                    <button type="button" id="clockResetButton" class="clock-round-btn clock-round-btn--secondary">구간 기록</button>
+                    <button type="button" id="clockToggleButton" class="clock-round-btn clock-round-btn--primary">시작</button>
+                </div>
+
+                <div class="clock-mode-bar" role="group" aria-label="시계 종류">
+                    <button type="button" class="clock-mode-btn" id="modeStopwatchButton" aria-pressed="true">
+                        <i class="fa-solid fa-stopwatch" aria-hidden="true"></i><span>스톱워치</span>
+                    </button>
+                    <button type="button" class="clock-mode-btn" id="modeTimerButton" aria-pressed="false">
+                        <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i><span>타이머</span>
+                    </button>
                 </div>
 
             </div>

@@ -113,7 +113,8 @@ const clockState = {
     startedAt: 0,
     baseMs: 0,
     presetMs: 60000,
-    intervalId: null
+    intervalId: null,
+    laps: [] // 스톱워치 구간 기록 (누적 시간 ms)
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -544,8 +545,11 @@ function renderModalRoutineList() {
 
 
 /* ==========================================
-   9. 타이머 / 스톱워치 모달 (와이어프레임 23번)
+   9. 타이머 / 스톱워치 화면 (와이어프레임 23번) — 전체 화면
    ========================================== */
+const dialProgressLength = 2 * Math.PI * 138; // index.html 의 clockProgress 원(r=138) 둘레
+const pickerItemHeight = 76; // style.css 의 .time-picker-item 높이와 같아야 한다
+
 function openTimerModal() {
     showModalElement(document.getElementById('timerModal'));
 }
@@ -565,13 +569,198 @@ function getClockMs() {
     return Math.max(0, clockState.baseMs - elapsedMs);
 }
 
-// 스톱워치는 내림, 타이머는 올림 (끝나기 직전까지 00:00:01 로 보이게)
-function formatClock(ms, mode) {
-    const totalSeconds = mode === 'timer' ? Math.ceil(ms / 1000) : Math.floor(ms / 1000);
+// 타이머: 시:분:초 (끝나기 직전까지 00:00:01 로 보이게 올림)
+function formatTimerClock(ms) {
+    const totalSeconds = Math.ceil(ms / 1000);
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
+}
+
+// 스톱워치: 1시간 전에는 분:초, 넘으면 시:분:초 (내림)
+function formatStopwatchMain(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
+}
+
+// 0.01초 단위 (.00 ~ .99)
+function formatCentiseconds(ms) {
+    return `.${String(Math.floor((ms % 1000) / 10)).padStart(2, '0')}`;
+}
+
+function formatStopwatch(ms) {
+    return formatStopwatchMain(ms) + formatCentiseconds(ms);
+}
+
+// 원 둘레의 눈금 60개 (5칸마다 굵게)
+function buildClockDial() {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const ticksGroup = document.getElementById('clockTicks');
+
+    for (let index = 0; index < 60; index++) {
+        const isMajor = index % 5 === 0;
+        const angle = (index / 60) * Math.PI * 2;
+        const innerRadius = isMajor ? 132 : 138;
+        const outerRadius = 146;
+
+        const tick = document.createElementNS(svgNamespace, 'line');
+        tick.setAttribute('x1', (150 + Math.sin(angle) * innerRadius).toFixed(2));
+        tick.setAttribute('y1', (150 - Math.cos(angle) * innerRadius).toFixed(2));
+        tick.setAttribute('x2', (150 + Math.sin(angle) * outerRadius).toFixed(2));
+        tick.setAttribute('y2', (150 - Math.cos(angle) * outerRadius).toFixed(2));
+        tick.setAttribute('class', isMajor ? 'clock-tick clock-tick--major' : 'clock-tick');
+        ticksGroup.appendChild(tick);
+    }
+
+    document.getElementById('clockProgress').style.strokeDasharray = String(dialProgressLength);
+}
+
+// 숫자 + 원(스톱워치 바늘 / 타이머 남은 시간 테두리)을 그린다
+function renderClockDisplay(ms) {
+    const isStopwatch = clockState.mode === 'stopwatch';
+    const displayElement = document.getElementById('clockDisplay');
+    const fractionElement = document.getElementById('clockFraction');
+
+    if (isStopwatch) {
+        document.getElementById('clockMain').textContent = formatStopwatchMain(ms);
+        fractionElement.textContent = formatCentiseconds(ms);
+        displayElement.classList.toggle('is-long', ms >= 3600000);
+
+        // 바늘은 1분에 한 바퀴
+        const handAngle = ((ms % 60000) / 60000) * 360;
+        document.getElementById('clockHand').setAttribute('transform', `rotate(${handAngle.toFixed(2)} 150 150)`);
+    } else {
+        document.getElementById('clockMain').textContent = formatTimerClock(ms);
+        displayElement.classList.remove('is-long');
+
+        const remainingRatio = clockState.presetMs > 0 ? ms / clockState.presetMs : 0;
+        document.getElementById('clockProgress').style.strokeDashoffset = String(dialProgressLength * (1 - remainingRatio));
+    }
+    fractionElement.hidden = !isStopwatch;
+}
+
+/* 타이머 시간 선택 휠: 시/분/초 칸을 위아래로 스크롤해서 맞춘다 */
+function getPickerColumns() {
+    return document.querySelectorAll('#timePicker .time-picker-scroll');
+}
+
+function getPickerValue(column) {
+    const maxValue = Number(column.dataset.max);
+    return Math.min(maxValue, Math.max(0, Math.round(column.scrollTop / pickerItemHeight)));
+}
+
+function markPickerSelection(column) {
+    const value = getPickerValue(column);
+    column.querySelectorAll('.time-picker-item').forEach((item, index) => {
+        item.classList.toggle('is-selected', index === value);
+    });
+    column.setAttribute('aria-valuenow', String(value));
+}
+
+function setPickerValue(column, value, smooth) {
+    column.scrollTo({ top: value * pickerItemHeight, behavior: smooth ? 'smooth' : 'auto' });
+    markPickerSelection(column);
+}
+
+// 선택해 둔 타이머 시간(presetMs)을 휠 위치에 반영한다
+function syncPickerFromPreset() {
+    const totalSeconds = Math.round(clockState.presetMs / 1000);
+    const values = {
+        hours: Math.floor(totalSeconds / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60
+    };
+    // 바로 이동해야 움직이는 중간 값이 타이머 시간으로 잡히지 않는다
+    getPickerColumns().forEach(column => setPickerValue(column, values[column.dataset.unit], false));
+}
+
+// 휠이 멈추면 그 값으로 타이머 시간을 바꾼다
+function applyPickerToPreset() {
+    if (clockState.isRunning || clockState.mode !== 'timer' || document.getElementById('timerSetupArea').hidden) return;
+
+    let totalSeconds = 0;
+    getPickerColumns().forEach(column => {
+        const value = getPickerValue(column);
+        if (column.dataset.unit === 'hours') totalSeconds += value * 3600;
+        if (column.dataset.unit === 'minutes') totalSeconds += value * 60;
+        if (column.dataset.unit === 'seconds') totalSeconds += value;
+        setPickerValue(column, value, true); // 칸 가운데에 딱 맞춘다
+    });
+
+    clockState.presetMs = totalSeconds * 1000;
+    clockState.baseMs = clockState.presetMs;
+    setClockMessage('');
+    updateClockUi();
+}
+
+function buildTimePicker() {
+    getPickerColumns().forEach(column => {
+        const maxValue = Number(column.dataset.max);
+        column.setAttribute('aria-valuemin', '0');
+        column.setAttribute('aria-valuemax', String(maxValue));
+
+        for (let value = 0; value <= maxValue; value++) {
+            const item = document.createElement('div');
+            item.className = 'time-picker-item';
+            item.textContent = String(value).padStart(2, '0');
+            item.addEventListener('click', () => {
+                setPickerValue(column, value, true);
+            });
+            column.appendChild(item);
+        }
+
+        let settleTimerId = null;
+        column.addEventListener('scroll', () => {
+            markPickerSelection(column);
+            clearTimeout(settleTimerId);
+            settleTimerId = setTimeout(applyPickerToPreset, 150);
+        });
+
+        // 키보드: 위/아래 화살표로 한 칸씩
+        column.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+            event.preventDefault();
+            const step = event.key === 'ArrowUp' ? -1 : 1;
+            const nextValue = Math.min(maxValue, Math.max(0, getPickerValue(column) + step));
+            setPickerValue(column, nextValue, true);
+        });
+    });
+}
+
+/* 스톱워치 구간 기록 (최근 기록이 위로) */
+function renderLaps() {
+    const lapList = document.getElementById('lapList');
+    lapList.textContent = '';
+
+    for (let index = clockState.laps.length - 1; index >= 0; index--) {
+        const totalMs = clockState.laps[index];
+        const previousMs = index > 0 ? clockState.laps[index - 1] : 0;
+
+        const row = document.createElement('li');
+        row.className = 'clock-lap';
+        [
+            ['clock-lap-name', `구간 ${String(index + 1).padStart(2, '0')}`],
+            ['clock-lap-split', `+${formatStopwatch(totalMs - previousMs)}`],
+            ['clock-lap-total', formatStopwatch(totalMs)]
+        ].forEach(([className, text]) => {
+            const cell = document.createElement('span');
+            cell.className = className;
+            cell.textContent = text;
+            row.appendChild(cell);
+        });
+        lapList.appendChild(row);
+    }
+
+    document.getElementById('clockDialArea').classList.toggle('has-laps', clockState.laps.length > 0);
+}
+
+function addLap() {
+    clockState.laps.push(getClockMs());
+    renderLaps();
 }
 
 function setClockMessage(message) {
@@ -584,25 +773,55 @@ function stopClockInterval() {
 }
 
 function updateClockUi() {
+    const isStopwatch = clockState.mode === 'stopwatch';
     const displayElement = document.getElementById('clockDisplay');
-    displayElement.textContent = formatClock(getClockMs(), clockState.mode);
+
+    renderClockDisplay(getClockMs());
     displayElement.classList.toggle(
         'clock-finished',
-        clockState.mode === 'timer' && !clockState.isRunning && clockState.baseMs === 0
+        !isStopwatch && !clockState.isRunning && clockState.baseMs === 0
     );
+    document.getElementById('timerModalTitle').textContent = isStopwatch ? '스톱워치' : '타이머';
+
+    // 타이머를 시작하기 전(또는 초기화 후)에는 시간 선택 휠을, 그 외에는 원 + 숫자를 보여준다
+    const setupElement = document.getElementById('timerSetupArea');
+    const dialAreaElement = document.getElementById('clockDialArea');
+    const showSetup = !isStopwatch && !clockState.isRunning && clockState.baseMs === clockState.presetMs;
+    const wasSetupHidden = setupElement.hidden;
+    setupElement.hidden = !showSetup;
+    dialAreaElement.hidden = showSetup;
+    dialAreaElement.dataset.mode = clockState.mode;
+    if (showSetup && wasSetupHidden) syncPickerFromPreset();
 
     const hasProgress = clockState.baseMs > 0
-        && (clockState.mode === 'stopwatch' || clockState.baseMs < clockState.presetMs);
+        && (isStopwatch || clockState.baseMs < clockState.presetMs);
+    const isTimerFinished = !isStopwatch && clockState.baseMs === 0 && clockState.presetMs > 0;
 
+    // 오른쪽 큰 버튼: 시작 / 일시정지 / 계속
     let toggleLabel = '시작';
     if (clockState.isRunning) {
         toggleLabel = '일시정지';
+    } else if (isTimerFinished) {
+        toggleLabel = '다시 시작';
     } else if (hasProgress) {
         toggleLabel = '계속';
     }
     document.getElementById('clockToggleButton').textContent = toggleLabel;
 
-    // 프리셋 버튼: 선택 표시 + 실행 중에는 변경 불가
+    // 왼쪽 버튼: 스톱워치는 구간 기록 / 초기화, 타이머는 취소 (시간 설정 중에는 숨김)
+    const leftButton = document.getElementById('clockResetButton');
+    if (isStopwatch) {
+        leftButton.hidden = false;
+        leftButton.textContent = !clockState.isRunning && hasProgress ? '초기화' : '구간 기록';
+        leftButton.disabled = !clockState.isRunning && !hasProgress;
+    } else {
+        leftButton.hidden = showSetup;
+        leftButton.textContent = '취소';
+        leftButton.disabled = false;
+    }
+    document.getElementById('clockActions').classList.toggle('is-single', leftButton.hidden);
+
+    // 자주 쓰는 시간 버튼: 선택 표시 + 실행 중에는 변경 불가
     document.getElementById('presetRow').querySelectorAll('button').forEach(presetButton => {
         const presetMs = Number(presetButton.dataset.seconds) * 1000;
         presetButton.setAttribute('aria-pressed', String(presetMs === clockState.presetMs));
@@ -616,16 +835,22 @@ function setClockMode(mode) {
     clockState.mode = mode;
     clockState.isRunning = false;
     clockState.baseMs = mode === 'stopwatch' ? 0 : clockState.presetMs;
+    clockState.laps = [];
+    renderLaps();
 
     document.getElementById('modeStopwatchButton').setAttribute('aria-pressed', String(mode === 'stopwatch'));
     document.getElementById('modeTimerButton').setAttribute('aria-pressed', String(mode === 'timer'));
-    document.getElementById('presetRow').classList.toggle('hidden', mode !== 'timer');
 
     setClockMessage('');
     updateClockUi();
 }
 
 function startClock() {
+    if (clockState.mode === 'timer' && clockState.presetMs <= 0) {
+        setClockMessage('타이머 시간을 먼저 맞춰 주세요.');
+        return;
+    }
+
     // 타이머가 끝난 뒤 다시 누르면 선택해 둔 시간부터 다시 시작
     if (clockState.mode === 'timer' && clockState.baseMs <= 0) {
         clockState.baseMs = clockState.presetMs;
@@ -633,7 +858,8 @@ function startClock() {
 
     clockState.isRunning = true;
     clockState.startedAt = Date.now();
-    clockState.intervalId = setInterval(tickClock, 200);
+    // 스톱워치는 0.01초 단위가 보이므로 자주 갱신한다
+    clockState.intervalId = setInterval(tickClock, clockState.mode === 'stopwatch' ? 10 : 50);
 
     setClockMessage('');
     updateClockUi();
@@ -652,6 +878,8 @@ function resetClock() {
 
     clockState.isRunning = false;
     clockState.baseMs = clockState.mode === 'stopwatch' ? 0 : clockState.presetMs;
+    clockState.laps = [];
+    renderLaps();
 
     setClockMessage('');
     updateClockUi();
@@ -659,7 +887,7 @@ function resetClock() {
 
 function tickClock() {
     const currentMs = getClockMs();
-    document.getElementById('clockDisplay').textContent = formatClock(currentMs, clockState.mode);
+    renderClockDisplay(currentMs);
 
     if (clockState.mode === 'timer' && currentMs <= 0) {
         finishTimer();
@@ -693,9 +921,16 @@ function bindClockEvents() {
         }
     });
 
-    document.getElementById('clockResetButton').addEventListener('click', resetClock);
+    // 왼쪽 버튼: 스톱워치가 돌아가는 중이면 구간 기록, 아니면 초기화(타이머는 취소)
+    document.getElementById('clockResetButton').addEventListener('click', () => {
+        if (clockState.mode === 'stopwatch' && clockState.isRunning) {
+            addLap();
+        } else {
+            resetClock();
+        }
+    });
 
-    // 프리셋 버튼은 이벤트 위임으로 처리
+    // 자주 쓰는 시간 버튼은 이벤트 위임으로 처리
     document.getElementById('presetRow').addEventListener('click', (event) => {
         const presetButton = event.target.closest('button[data-seconds]');
         if (!presetButton || clockState.isRunning) return;
@@ -705,6 +940,7 @@ function bindClockEvents() {
 
         setClockMessage('');
         updateClockUi();
+        syncPickerFromPreset();
     });
 }
 
@@ -715,6 +951,8 @@ async function initApp() {
     bindAuthEvents();
     bindHeaderButtons();
     bindModalShortcuts();
+    buildTimePicker();
+    buildClockDial();
     bindClockEvents();
     bindFeatureEvents();
     initCalculatorOptions();
