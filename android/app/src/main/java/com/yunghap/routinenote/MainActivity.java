@@ -2,10 +2,7 @@ package com.yunghap.routinenote;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,7 +21,6 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.graphics.Insets;
@@ -35,9 +31,6 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -156,10 +149,25 @@ public class MainActivity extends AppCompatActivity {
             public void setWorkoutAlarms(String alarmsJson) {
                 WorkoutAlarmScheduler.setAlarms(getApplicationContext(), alarmsJson);
             }
+
+            // 지금 알림을 받을 수 있는 상태인지 (알림 시간을 정할 때 웹이 확인한다)
+            @JavascriptInterface
+            public boolean isNotificationAllowed() {
+                return NotificationHelper.isAllowed(MainActivity.this);
+            }
+
+            // 알림이 꺼져 있을 때 한국어 안내 창으로 다시 물어본다
+            @JavascriptInterface
+            public void askNotificationPermission() {
+                runOnUiThread(() -> NotificationHelper.askAgain(MainActivity.this));
+            }
         }, "RoutineNoteApp");
 
         // 4. 휴대폰 권한 요청 (처음 실행할 때): 위치 + 알림(안드로이드 13 이상)
-        requestInitialPermissions();
+        NotificationHelper.requestAtStartup(this, new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        });
 
         // 5. 루틴노트 화면 열기
         webView.loadUrl(START_URL);
@@ -182,39 +190,6 @@ public class MainActivity extends AppCompatActivity {
                         });
             }
         });
-    }
-
-    // 위치 + 알림 권한을 요청한다
-    // 시스템 권한 창은 폰 언어로 나오므로, 알림 권한은 먼저 한국어 안내 창으로 이유를 설명한다 (처음 한 번만)
-    private void requestInitialPermissions() {
-        List<String> permissions = new ArrayList<>();
-        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-
-        boolean needsNotification = false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
-            needsNotification = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED;
-        }
-        final String[] permissionArray = permissions.toArray(new String[0]);
-
-        SharedPreferences prefs = getSharedPreferences("app_state", MODE_PRIVATE);
-        if (needsNotification && !prefs.getBoolean("notification_intro_shown", false)) {
-            new AlertDialog.Builder(this)
-                    .setTitle("운동 알림 허용")
-                    .setMessage("정해 둔 운동 시간에 알려 드리려면 알림 권한이 필요해요.\n\n"
-                            + "다음에 나오는 권한 창에서 '허용'을 눌러 주세요.")
-                    .setCancelable(false)
-                    .setPositiveButton("확인", (dialog, which) -> {
-                        // '확인'을 눌렀을 때만 "안내했음"으로 기록한다 (언어 적용으로 화면이 다시 만들어져도 안내가 사라지지 않게)
-                        prefs.edit().putBoolean("notification_intro_shown", true).apply();
-                        requestPermissions(permissionArray, 1);
-                    })
-                    .show();
-        } else {
-            requestPermissions(permissionArray, 1);
-        }
     }
 
     // 상태바·내비게이션바 색을 웹 화면의 라이트/다크 모드에 맞춘다

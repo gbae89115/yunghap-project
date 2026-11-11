@@ -2482,22 +2482,12 @@ function renderExerciseLogList() {
         : '';
 }
 
-// 오전/오후 + 시 + 분 선택칸에서 알림 시간('HH:MM')을 읽는다. 아무것도 안 골랐으면 알림 없음('')
+// 알림 시간 칸(시계로 고르는 칸)에서 'HH:MM' 을 읽는다. 비어 있으면 알림 없음('')
 function readLogAlarmTime() {
-    const period = document.getElementById('logAlarmAmPm').value;
-    const hourText = document.getElementById('logAlarmHour').value;
-    const minuteText = document.getElementById('logAlarmMinute').value;
-
-    if (period === '' && hourText === '' && minuteText === '') return { time: '', error: '' };
-    if (period === '' || hourText === '') {
-        return { time: '', error: '알림 시간은 오전/오후와 시를 골라 주세요.' };
-    }
-
-    let hour = parseInt(hourText, 10) % 12;
-    if (period === 'PM') hour += 12;
-    const minute = minuteText === '' ? 0 : parseInt(minuteText, 10);
-
-    return { time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, error: '' };
+    const timeText = document.getElementById('logAlarmTime').value;
+    if (timeText === '') return { time: '', error: '' };
+    if (!/^\d{2}:\d{2}$/.test(timeText)) return { time: '', error: '알림 시간을 다시 골라 주세요.' };
+    return { time: timeText, error: '' };
 }
 
 async function addExerciseLog(event) {
@@ -2543,7 +2533,7 @@ async function addExerciseLog(event) {
         alarmTime: alarm.time
     });
 
-    ['logExerciseName', 'logSets', 'logWeight', 'logReps', 'logAlarmAmPm', 'logAlarmHour', 'logAlarmMinute'].forEach(inputId => {
+    ['logExerciseName', 'logSets', 'logWeight', 'logReps', 'logAlarmTime'].forEach(inputId => {
         document.getElementById(inputId).value = '';
     });
     renderExerciseLogList();
@@ -2556,6 +2546,15 @@ async function addExerciseLog(event) {
         showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
     } else {
         showToast(`추가했어요. ${formatAlarmTimeKorean(alarm.time)}에 알림이 와요!`);
+    }
+
+    // 알림이 꺼져 있으면(권한을 안 줬거나 꺼 둔 경우) 한국어 안내 창으로 다시 물어본다
+    if (alarm.time !== ''
+        && typeof RoutineNoteApp !== 'undefined'
+        && typeof RoutineNoteApp.isNotificationAllowed === 'function'
+        && !RoutineNoteApp.isNotificationAllowed()) {
+        showToast('알림이 꺼져 있어요. 안내 창에서 알림을 켜 주세요.');
+        RoutineNoteApp.askNotificationPermission();
     }
 }
 
