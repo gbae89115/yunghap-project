@@ -403,7 +403,7 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     font-variant-numeric: tabular-nums;
 }
 .metric-unit {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     color: #94a3b8;
 }
@@ -427,7 +427,7 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .type-chip i { font-size: 18px; }
-.type-chip small { font-size: 10px; font-weight: 500; color: #94a3b8; }
+.type-chip small { font-size: 11px; font-weight: 500; color: #94a3b8; }
 .type-chip[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
 .type-chip[aria-pressed="true"] small { color: #60a5fa; }
 .dark .type-chip { border-color: #475569; background: #1e293b; color: #cbd5e1; }
@@ -563,10 +563,10 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     color: #1e293b;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
 }
-.onboarding-result[data-bmi-level="under"] { --bmi-color: #0ea5e9; }
+.onboarding-result[data-bmi-level="under"] { --bmi-color: #3b82f6; }
 .onboarding-result[data-bmi-level="normal"] { --bmi-color: #10b981; }
 .onboarding-result[data-bmi-level="over"] { --bmi-color: #f59e0b; }
-.onboarding-result[data-bmi-level="obese"] { --bmi-color: #f43f5e; }
+.onboarding-result[data-bmi-level="obese"] { --bmi-color: #ef4444; }
 
 .onboarding-bmi-value {
     margin-top: 2px;
@@ -598,10 +598,10 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     border-radius: 9999px;
     opacity: 0.35;
 }
-.onboarding-bmi-segment.level-under { background: #0ea5e9; }
+.onboarding-bmi-segment.level-under { background: #3b82f6; }
 .onboarding-bmi-segment.level-normal { background: #10b981; }
 .onboarding-bmi-segment.level-over { background: #f59e0b; }
-.onboarding-bmi-segment.level-obese { background: #f43f5e; }
+.onboarding-bmi-segment.level-obese { background: #ef4444; }
 .onboarding-result[data-bmi-level="under"] .level-under,
 .onboarding-result[data-bmi-level="normal"] .level-normal,
 .onboarding-result[data-bmi-level="over"] .level-over,
@@ -628,7 +628,7 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
 .onboarding-bmi-labels span {
     text-align: center;
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 800;
     color: #94a3b8;
 }
