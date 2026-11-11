@@ -112,6 +112,12 @@ body {
 .fc .fc-button-primary:disabled { background: transparent; opacity: 0.35; }
 .fc .fc-button-primary:focus-visible { outline: 3px solid #3b82f6; outline-offset: 1px; box-shadow: none; }
 
+/* 다크 모드: 요일 줄 배경과 칸 테두리 색 */
+.dark .fc {
+    --fc-page-bg-color: #1e293b;
+    --fc-border-color: #334155;
+}
+
 .fc .fc-col-header-cell-cushion {
     padding: 6px 0;
     font-size: 12px;

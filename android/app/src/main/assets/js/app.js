@@ -1123,8 +1123,8 @@ function setAuthMode(mode) {
     const isJoin = mode === 'join';
 
     document.getElementById('joinConfirmField').classList.toggle('hidden', !isJoin);
-    document.getElementById('loginSubmitButton').textContent = isJoin ? '회원가입' : 'Login';
-    document.getElementById('authModeToggle').textContent = isJoin ? '로그인으로 돌아가기' : 'Join';
+    document.getElementById('loginSubmitButton').textContent = isJoin ? '회원가입' : '로그인';
+    document.getElementById('authModeToggle').textContent = isJoin ? '로그인으로 돌아가기' : '회원가입';
     document.getElementById('authSubtitle').textContent = isJoin
         ? '새 계정을 만들어 운동 기록을 시작해요'
         : '운동 루틴을 기록하고 이어가요';

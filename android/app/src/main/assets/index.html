@@ -223,7 +223,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2">
                     <div class="flex justify-between items-center px-1">
                         <div class="flex items-center space-x-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <i class="fa-solid fa-person-running text-brand-500" aria-hidden="true"></i>
                             <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200">GPS 러닝 트래커</h3>
                         </div>
                     </div>
@@ -515,12 +515,8 @@
                         <span class="font-bold text-slate-800 dark:text-slate-200">1.0.0</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>지도 엔진</span>
+                        <span>지도</span>
                         <span class="font-bold text-slate-800 dark:text-slate-200">카카오맵</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>개발 모드</span>
-                        <span class="font-bold text-emerald-600">SPA 모바일 웹 싱글파일</span>
                     </div>
                 </div>
 
@@ -588,8 +584,8 @@
                             <div id="goalProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%;"></div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div><label for="goalTargetWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표 체중(kg)</label><input type="number" id="goalTargetWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="col-span-2"><label for="goalTargetWeight" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">목표 체중(kg)</label><input type="number" id="goalTargetWeight" step="0.5" min="20" max="300" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"></div>
                         <div><label for="goalStartDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">시작일</label><input type="date" id="goalStartDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
                         <div><label for="goalEndDate" class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">종료일</label><input type="date" id="goalEndDate" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 px-1.5"></div>
                     </div>
@@ -881,25 +877,25 @@
                 <form id="loginForm" class="mt-10 space-y-3" novalidate>
                     <div class="relative">
                         <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
-                        <label for="loginUserId" class="sr-only">User ID</label>
-                        <input type="text" id="loginUserId" autocomplete="username" maxlength="20" placeholder="User ID" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                        <label for="loginUserId" class="sr-only">아이디</label>
+                        <input type="text" id="loginUserId" autocomplete="username" maxlength="20" placeholder="아이디" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
                     </div>
                     <div class="relative">
                         <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
-                        <label for="loginPassword" class="sr-only">Password</label>
-                        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                        <label for="loginPassword" class="sr-only">비밀번호</label>
+                        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="비밀번호" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
                     </div>
                     <div class="relative hidden" id="joinConfirmField">
                         <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
-                        <label for="joinPasswordConfirm" class="sr-only">Password 확인</label>
-                        <input type="password" id="joinPasswordConfirm" autocomplete="new-password" placeholder="Password 확인" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
+                        <label for="joinPasswordConfirm" class="sr-only">비밀번호 확인</label>
+                        <input type="password" id="joinPasswordConfirm" autocomplete="new-password" placeholder="비밀번호 확인" class="w-full rounded-xl bg-white/90 text-slate-800 placeholder-slate-400 pl-10 pr-3 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white">
                     </div>
 
                     <p id="loginMessage" role="alert" class="min-h-[16px] text-xs font-bold text-amber-200"></p>
 
-                    <button type="submit" id="loginSubmitButton" class="w-full bg-white text-brand-600 font-black py-3 rounded-xl text-sm shadow-lg hover:bg-blue-50 transition disabled:opacity-60">Login</button>
+                    <button type="submit" id="loginSubmitButton" class="w-full bg-white text-brand-600 font-black py-3 rounded-xl text-sm shadow-lg hover:bg-blue-50 transition disabled:opacity-60">로그인</button>
                     <div class="text-right">
-                        <button type="button" id="authModeToggle" class="text-xs font-bold text-blue-100 hover:text-white underline underline-offset-2">Join</button>
+                        <button type="button" id="authModeToggle" class="text-xs font-bold text-blue-100 hover:text-white underline underline-offset-2">회원가입</button>
                     </div>
                 </form>
 
