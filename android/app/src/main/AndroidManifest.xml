@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 운동 알림: 알림 표시(안드로이드 13+), 정확한 시간 알람, 휴대폰을 껐다 켠 뒤 알림 복구 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -18,7 +23,12 @@
             android:name=".MainActivity"
             android:theme="@style/Theme.RoutineNote.Starting"
             android:exported="true"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
             android:windowSoftInputMode="adjustResize">
+            <!-- screenOrientation: 세로 화면으로 고정 (화면이 세로 폰 기준으로 디자인됨)
+                 configChanges: 화면 회전·화면 분할·다크 모드 전환 때 앱(웹뷰)을 다시 만들지 않는다
+                 → 스톱워치, 러닝 기록, 보던 탭이 그대로 유지된다 -->
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -26,6 +36,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 정한 시간에 운동 알림을 띄운다 (앱이 꺼져 있어도 동작) -->
+        <receiver
+            android:name=".AlarmReceiver"
+            android:exported="false" />
+
+        <!-- 휴대폰을 다시 켜거나 앱을 업데이트한 뒤 예약된 알림을 다시 등록한다 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

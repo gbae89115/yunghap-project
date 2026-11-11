@@ -3,6 +3,7 @@ package com.yunghap.routinenote;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -29,6 +30,9 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -137,26 +141,43 @@ public class MainActivity extends AppCompatActivity {
             public void setDarkMode(boolean isDark) {
                 runOnUiThread(() -> applyBarTheme(isDark));
             }
+
+            // 웹(app.js)이 "앞으로 울릴 운동 알림 목록"(JSON)을 넘기면 안드로이드 알람으로 예약한다
+            // 앱이 꺼져 있어도 정한 시간에 알림이 뜬다 (WorkoutAlarmScheduler)
+            @JavascriptInterface
+            public void setWorkoutAlarms(String alarmsJson) {
+                WorkoutAlarmScheduler.setAlarms(getApplicationContext(), alarmsJson);
+            }
         }, "RoutineNoteApp");
 
-        // 4. 휴대폰 위치 권한 요청 (처음 실행할 때 팝업이 뜬다)
-        requestPermissions(new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-        }, 1);
+        // 4. 휴대폰 권한 요청 (처음 실행할 때 팝업이 뜬다): 위치 + 알림(안드로이드 13 이상)
+        List<String> permissions = new ArrayList<>();
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+        requestPermissions(permissions.toArray(new String[0]), 1);
 
         // 5. 루틴노트 화면 열기
         webView.loadUrl(START_URL);
 
-        // 6. 뒤로가기 버튼: 웹 안에서 뒤로 가고, 더 갈 곳이 없으면 앱 종료
+        // 6. 뒤로가기 버튼: 먼저 웹 화면(app.js 의 handleAppBack)에 맡긴다
+        //    - 열린 창 닫기 / 이전 탭으로 이동 / 초기값 설정 이전 단계 → 웹이 처리하고 "true"
+        //    - 처음 화면에서 두 번 눌렀을 때 → "false" 를 받아 앱 종료
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack();
-                } else {
-                    finish();
-                }
+                webView.evaluateJavascript(
+                        "(typeof handleAppBack === 'function') ? handleAppBack() : false",
+                        result -> {
+                            if ("true".equals(result)) return;
+                            if (webView.canGoBack()) {
+                                webView.goBack();
+                            } else {
+                                finish();
+                            }
+                        });
             }
         });
     }

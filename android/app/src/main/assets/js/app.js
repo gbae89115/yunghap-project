@@ -32,9 +32,10 @@ let selectedGender = "male";
 // GPS Running State
 let isRunning = false;
 let runTimerInterval = null;
-let secondsElapsed = 1720; // 00:28:40
-let distanceKm = 5.2;
-let caloriesBurned = 415;
+// 러닝 기록은 0에서 시작한다 (예전 예시값: 00:28:40 / 5.2km / 415kcal)
+let secondsElapsed = 0;
+let distanceKm = 0;
+let caloriesBurned = 0;
 
 // Kakao Map Instances
 let kakaoMapInstance = null;
@@ -113,7 +114,8 @@ const clockState = {
     startedAt: 0,
     baseMs: 0,
     presetMs: 60000,
-    intervalId: null
+    intervalId: null,
+    laps: [] // 스톱워치 구간 기록 (누적 시간 ms)
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -505,6 +507,14 @@ function createModalRoutineRow(item, dateStr) {
 
     leftElement.append(toggleButton, nameElement);
 
+    if (item.alarmTime) {
+        const alarmElement = document.createElement('span');
+        alarmElement.className = 'text-[10px] font-bold text-brand-600 dark:text-brand-300 whitespace-nowrap';
+        alarmElement.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
+        alarmElement.append(item.alarmTime);
+        leftElement.appendChild(alarmElement);
+    }
+
     const rightElement = document.createElement('div');
     rightElement.className = 'flex items-center space-x-1.5';
 
@@ -544,8 +554,11 @@ function renderModalRoutineList() {
 
 
 /* ==========================================
-   9. 타이머 / 스톱워치 모달 (와이어프레임 23번)
+   9. 타이머 / 스톱워치 화면 (와이어프레임 23번) — 전체 화면
    ========================================== */
+const dialProgressLength = 2 * Math.PI * 138; // index.html 의 clockProgress 원(r=138) 둘레
+const pickerItemHeight = 76; // style.css 의 .time-picker-item 높이와 같아야 한다
+
 function openTimerModal() {
     showModalElement(document.getElementById('timerModal'));
 }
@@ -565,13 +578,198 @@ function getClockMs() {
     return Math.max(0, clockState.baseMs - elapsedMs);
 }
 
-// 스톱워치는 내림, 타이머는 올림 (끝나기 직전까지 00:00:01 로 보이게)
-function formatClock(ms, mode) {
-    const totalSeconds = mode === 'timer' ? Math.ceil(ms / 1000) : Math.floor(ms / 1000);
+// 타이머: 시:분:초 (끝나기 직전까지 00:00:01 로 보이게 올림)
+function formatTimerClock(ms) {
+    const totalSeconds = Math.ceil(ms / 1000);
     const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
     return `${hours}:${minutes}:${seconds}`;
+}
+
+// 스톱워치: 1시간 전에는 분:초, 넘으면 시:분:초 (내림)
+function formatStopwatchMain(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
+}
+
+// 0.01초 단위 (.00 ~ .99)
+function formatCentiseconds(ms) {
+    return `.${String(Math.floor((ms % 1000) / 10)).padStart(2, '0')}`;
+}
+
+function formatStopwatch(ms) {
+    return formatStopwatchMain(ms) + formatCentiseconds(ms);
+}
+
+// 원 둘레의 눈금 60개 (5칸마다 굵게)
+function buildClockDial() {
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const ticksGroup = document.getElementById('clockTicks');
+
+    for (let index = 0; index < 60; index++) {
+        const isMajor = index % 5 === 0;
+        const angle = (index / 60) * Math.PI * 2;
+        const innerRadius = isMajor ? 132 : 138;
+        const outerRadius = 146;
+
+        const tick = document.createElementNS(svgNamespace, 'line');
+        tick.setAttribute('x1', (150 + Math.sin(angle) * innerRadius).toFixed(2));
+        tick.setAttribute('y1', (150 - Math.cos(angle) * innerRadius).toFixed(2));
+        tick.setAttribute('x2', (150 + Math.sin(angle) * outerRadius).toFixed(2));
+        tick.setAttribute('y2', (150 - Math.cos(angle) * outerRadius).toFixed(2));
+        tick.setAttribute('class', isMajor ? 'clock-tick clock-tick--major' : 'clock-tick');
+        ticksGroup.appendChild(tick);
+    }
+
+    document.getElementById('clockProgress').style.strokeDasharray = String(dialProgressLength);
+}
+
+// 숫자 + 원(스톱워치 바늘 / 타이머 남은 시간 테두리)을 그린다
+function renderClockDisplay(ms) {
+    const isStopwatch = clockState.mode === 'stopwatch';
+    const displayElement = document.getElementById('clockDisplay');
+    const fractionElement = document.getElementById('clockFraction');
+
+    if (isStopwatch) {
+        document.getElementById('clockMain').textContent = formatStopwatchMain(ms);
+        fractionElement.textContent = formatCentiseconds(ms);
+        displayElement.classList.toggle('is-long', ms >= 3600000);
+
+        // 바늘은 1분에 한 바퀴
+        const handAngle = ((ms % 60000) / 60000) * 360;
+        document.getElementById('clockHand').setAttribute('transform', `rotate(${handAngle.toFixed(2)} 150 150)`);
+    } else {
+        document.getElementById('clockMain').textContent = formatTimerClock(ms);
+        displayElement.classList.remove('is-long');
+
+        const remainingRatio = clockState.presetMs > 0 ? ms / clockState.presetMs : 0;
+        document.getElementById('clockProgress').style.strokeDashoffset = String(dialProgressLength * (1 - remainingRatio));
+    }
+    fractionElement.hidden = !isStopwatch;
+}
+
+/* 타이머 시간 선택 휠: 시/분/초 칸을 위아래로 스크롤해서 맞춘다 */
+function getPickerColumns() {
+    return document.querySelectorAll('#timePicker .time-picker-scroll');
+}
+
+function getPickerValue(column) {
+    const maxValue = Number(column.dataset.max);
+    return Math.min(maxValue, Math.max(0, Math.round(column.scrollTop / pickerItemHeight)));
+}
+
+function markPickerSelection(column) {
+    const value = getPickerValue(column);
+    column.querySelectorAll('.time-picker-item').forEach((item, index) => {
+        item.classList.toggle('is-selected', index === value);
+    });
+    column.setAttribute('aria-valuenow', String(value));
+}
+
+function setPickerValue(column, value, smooth) {
+    column.scrollTo({ top: value * pickerItemHeight, behavior: smooth ? 'smooth' : 'auto' });
+    markPickerSelection(column);
+}
+
+// 선택해 둔 타이머 시간(presetMs)을 휠 위치에 반영한다
+function syncPickerFromPreset() {
+    const totalSeconds = Math.round(clockState.presetMs / 1000);
+    const values = {
+        hours: Math.floor(totalSeconds / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60
+    };
+    // 바로 이동해야 움직이는 중간 값이 타이머 시간으로 잡히지 않는다
+    getPickerColumns().forEach(column => setPickerValue(column, values[column.dataset.unit], false));
+}
+
+// 휠이 멈추면 그 값으로 타이머 시간을 바꾼다
+function applyPickerToPreset() {
+    if (clockState.isRunning || clockState.mode !== 'timer' || document.getElementById('timerSetupArea').hidden) return;
+
+    let totalSeconds = 0;
+    getPickerColumns().forEach(column => {
+        const value = getPickerValue(column);
+        if (column.dataset.unit === 'hours') totalSeconds += value * 3600;
+        if (column.dataset.unit === 'minutes') totalSeconds += value * 60;
+        if (column.dataset.unit === 'seconds') totalSeconds += value;
+        setPickerValue(column, value, true); // 칸 가운데에 딱 맞춘다
+    });
+
+    clockState.presetMs = totalSeconds * 1000;
+    clockState.baseMs = clockState.presetMs;
+    setClockMessage('');
+    updateClockUi();
+}
+
+function buildTimePicker() {
+    getPickerColumns().forEach(column => {
+        const maxValue = Number(column.dataset.max);
+        column.setAttribute('aria-valuemin', '0');
+        column.setAttribute('aria-valuemax', String(maxValue));
+
+        for (let value = 0; value <= maxValue; value++) {
+            const item = document.createElement('div');
+            item.className = 'time-picker-item';
+            item.textContent = String(value).padStart(2, '0');
+            item.addEventListener('click', () => {
+                setPickerValue(column, value, true);
+            });
+            column.appendChild(item);
+        }
+
+        let settleTimerId = null;
+        column.addEventListener('scroll', () => {
+            markPickerSelection(column);
+            clearTimeout(settleTimerId);
+            settleTimerId = setTimeout(applyPickerToPreset, 150);
+        });
+
+        // 키보드: 위/아래 화살표로 한 칸씩
+        column.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+            event.preventDefault();
+            const step = event.key === 'ArrowUp' ? -1 : 1;
+            const nextValue = Math.min(maxValue, Math.max(0, getPickerValue(column) + step));
+            setPickerValue(column, nextValue, true);
+        });
+    });
+}
+
+/* 스톱워치 구간 기록 (최근 기록이 위로) */
+function renderLaps() {
+    const lapList = document.getElementById('lapList');
+    lapList.textContent = '';
+
+    for (let index = clockState.laps.length - 1; index >= 0; index--) {
+        const totalMs = clockState.laps[index];
+        const previousMs = index > 0 ? clockState.laps[index - 1] : 0;
+
+        const row = document.createElement('li');
+        row.className = 'clock-lap';
+        [
+            ['clock-lap-name', `구간 ${String(index + 1).padStart(2, '0')}`],
+            ['clock-lap-split', `+${formatStopwatch(totalMs - previousMs)}`],
+            ['clock-lap-total', formatStopwatch(totalMs)]
+        ].forEach(([className, text]) => {
+            const cell = document.createElement('span');
+            cell.className = className;
+            cell.textContent = text;
+            row.appendChild(cell);
+        });
+        lapList.appendChild(row);
+    }
+
+    document.getElementById('clockDialArea').classList.toggle('has-laps', clockState.laps.length > 0);
+}
+
+function addLap() {
+    clockState.laps.push(getClockMs());
+    renderLaps();
 }
 
 function setClockMessage(message) {
@@ -584,25 +782,55 @@ function stopClockInterval() {
 }
 
 function updateClockUi() {
+    const isStopwatch = clockState.mode === 'stopwatch';
     const displayElement = document.getElementById('clockDisplay');
-    displayElement.textContent = formatClock(getClockMs(), clockState.mode);
+
+    renderClockDisplay(getClockMs());
     displayElement.classList.toggle(
         'clock-finished',
-        clockState.mode === 'timer' && !clockState.isRunning && clockState.baseMs === 0
+        !isStopwatch && !clockState.isRunning && clockState.baseMs === 0
     );
+    document.getElementById('timerModalTitle').textContent = isStopwatch ? '스톱워치' : '타이머';
+
+    // 타이머를 시작하기 전(또는 초기화 후)에는 시간 선택 휠을, 그 외에는 원 + 숫자를 보여준다
+    const setupElement = document.getElementById('timerSetupArea');
+    const dialAreaElement = document.getElementById('clockDialArea');
+    const showSetup = !isStopwatch && !clockState.isRunning && clockState.baseMs === clockState.presetMs;
+    const wasSetupHidden = setupElement.hidden;
+    setupElement.hidden = !showSetup;
+    dialAreaElement.hidden = showSetup;
+    dialAreaElement.dataset.mode = clockState.mode;
+    if (showSetup && wasSetupHidden) syncPickerFromPreset();
 
     const hasProgress = clockState.baseMs > 0
-        && (clockState.mode === 'stopwatch' || clockState.baseMs < clockState.presetMs);
+        && (isStopwatch || clockState.baseMs < clockState.presetMs);
+    const isTimerFinished = !isStopwatch && clockState.baseMs === 0 && clockState.presetMs > 0;
 
+    // 오른쪽 큰 버튼: 시작 / 일시정지 / 계속
     let toggleLabel = '시작';
     if (clockState.isRunning) {
         toggleLabel = '일시정지';
+    } else if (isTimerFinished) {
+        toggleLabel = '다시 시작';
     } else if (hasProgress) {
         toggleLabel = '계속';
     }
     document.getElementById('clockToggleButton').textContent = toggleLabel;
 
-    // 프리셋 버튼: 선택 표시 + 실행 중에는 변경 불가
+    // 왼쪽 버튼: 스톱워치는 구간 기록 / 초기화, 타이머는 취소 (시간 설정 중에는 숨김)
+    const leftButton = document.getElementById('clockResetButton');
+    if (isStopwatch) {
+        leftButton.hidden = false;
+        leftButton.textContent = !clockState.isRunning && hasProgress ? '초기화' : '구간 기록';
+        leftButton.disabled = !clockState.isRunning && !hasProgress;
+    } else {
+        leftButton.hidden = showSetup;
+        leftButton.textContent = '취소';
+        leftButton.disabled = false;
+    }
+    document.getElementById('clockActions').classList.toggle('is-single', leftButton.hidden);
+
+    // 자주 쓰는 시간 버튼: 선택 표시 + 실행 중에는 변경 불가
     document.getElementById('presetRow').querySelectorAll('button').forEach(presetButton => {
         const presetMs = Number(presetButton.dataset.seconds) * 1000;
         presetButton.setAttribute('aria-pressed', String(presetMs === clockState.presetMs));
@@ -616,16 +844,22 @@ function setClockMode(mode) {
     clockState.mode = mode;
     clockState.isRunning = false;
     clockState.baseMs = mode === 'stopwatch' ? 0 : clockState.presetMs;
+    clockState.laps = [];
+    renderLaps();
 
     document.getElementById('modeStopwatchButton').setAttribute('aria-pressed', String(mode === 'stopwatch'));
     document.getElementById('modeTimerButton').setAttribute('aria-pressed', String(mode === 'timer'));
-    document.getElementById('presetRow').classList.toggle('hidden', mode !== 'timer');
 
     setClockMessage('');
     updateClockUi();
 }
 
 function startClock() {
+    if (clockState.mode === 'timer' && clockState.presetMs <= 0) {
+        setClockMessage('타이머 시간을 먼저 맞춰 주세요.');
+        return;
+    }
+
     // 타이머가 끝난 뒤 다시 누르면 선택해 둔 시간부터 다시 시작
     if (clockState.mode === 'timer' && clockState.baseMs <= 0) {
         clockState.baseMs = clockState.presetMs;
@@ -633,7 +867,8 @@ function startClock() {
 
     clockState.isRunning = true;
     clockState.startedAt = Date.now();
-    clockState.intervalId = setInterval(tickClock, 200);
+    // 스톱워치는 0.01초 단위가 보이므로 자주 갱신한다
+    clockState.intervalId = setInterval(tickClock, clockState.mode === 'stopwatch' ? 10 : 50);
 
     setClockMessage('');
     updateClockUi();
@@ -652,6 +887,8 @@ function resetClock() {
 
     clockState.isRunning = false;
     clockState.baseMs = clockState.mode === 'stopwatch' ? 0 : clockState.presetMs;
+    clockState.laps = [];
+    renderLaps();
 
     setClockMessage('');
     updateClockUi();
@@ -659,7 +896,7 @@ function resetClock() {
 
 function tickClock() {
     const currentMs = getClockMs();
-    document.getElementById('clockDisplay').textContent = formatClock(currentMs, clockState.mode);
+    renderClockDisplay(currentMs);
 
     if (clockState.mode === 'timer' && currentMs <= 0) {
         finishTimer();
@@ -693,9 +930,16 @@ function bindClockEvents() {
         }
     });
 
-    document.getElementById('clockResetButton').addEventListener('click', resetClock);
+    // 왼쪽 버튼: 스톱워치가 돌아가는 중이면 구간 기록, 아니면 초기화(타이머는 취소)
+    document.getElementById('clockResetButton').addEventListener('click', () => {
+        if (clockState.mode === 'stopwatch' && clockState.isRunning) {
+            addLap();
+        } else {
+            resetClock();
+        }
+    });
 
-    // 프리셋 버튼은 이벤트 위임으로 처리
+    // 자주 쓰는 시간 버튼은 이벤트 위임으로 처리
     document.getElementById('presetRow').addEventListener('click', (event) => {
         const presetButton = event.target.closest('button[data-seconds]');
         if (!presetButton || clockState.isRunning) return;
@@ -705,6 +949,7 @@ function bindClockEvents() {
 
         setClockMessage('');
         updateClockUi();
+        syncPickerFromPreset();
     });
 }
 
@@ -715,6 +960,8 @@ async function initApp() {
     bindAuthEvents();
     bindHeaderButtons();
     bindModalShortcuts();
+    buildTimePicker();
+    buildClockDial();
     bindClockEvents();
     bindFeatureEvents();
     initCalculatorOptions();
@@ -728,6 +975,7 @@ async function initApp() {
     renderTodayChecklist();   // 로딩 안내를 먼저 보여준다
 
     ensureDemoAccount();
+    if (typeof handleKakaoLoginReturn === 'function' && await handleKakaoLoginReturn()) return;
     const savedSession = readStorage('session', null);
     const savedAccount = savedSession ? findAccount(savedSession.userId) : null;
 
@@ -816,6 +1064,11 @@ function findAccount(userId) {
 }
 
 // 서버의 테스트 사용자(testuser)와 같은 아이디를 미리 만들어 둔다
+// 예시 데이터는 시연용 계정(testuser)에만 채운다. 새로 가입한 사용자는 빈 데이터로 시작한다.
+function isDemoUser() {
+    return currentUser !== null && currentUser.userId === demoUserId;
+}
+
 function ensureDemoAccount() {
     if (findAccount(demoUserId) !== null) return;
 
@@ -931,7 +1184,7 @@ function bindAuthEvents() {
     document.getElementById('authModeToggle').addEventListener('click', () => {
         setAuthMode(authMode === 'login' ? 'join' : 'login');
     });
-    document.getElementById('kakaoLoginButton').addEventListener('click', handleKakaoLogin);
+    document.getElementById('kakaoLoginButton').addEventListener('click', () => startKakaoLogin());
 }
 
 async function handleAuthSubmit(event) {
@@ -1005,6 +1258,7 @@ function logout() {
     isWorkoutLoaded = false;
     isWorkoutCustom = false;
 
+    syncWorkoutAlarms(); // 로그아웃하면 다른 사람에게 알림이 가지 않도록 예약된 알림을 모두 지운다
     renderCalendarEvents();
     renderStreak();
     renderTodayChecklist();
@@ -1012,7 +1266,7 @@ function logout() {
     showLoginScreen();
 }
 
-// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 예시 데이터)
+// 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 빈 데이터, 시연용 계정만 예시 데이터)
 async function loadUserData() {
     const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
         requestStoredValue('profileName', ''),
@@ -1029,13 +1283,17 @@ async function loadUserData() {
         ? storedProfile
         : { gender: 'male', age: 28, height: 175, weight: 72.5 };
 
-    bodyRecords = Array.isArray(storedRecords) && storedRecords.length > 0
-        ? storedRecords
-        : buildMockBodyRecords();
+    if (Array.isArray(storedRecords) && storedRecords.length > 0) {
+        bodyRecords = storedRecords;
+    } else {
+        bodyRecords = isDemoUser() ? buildMockBodyRecords() : [];
+    }
 
-    dietGoal = storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)
-        ? storedGoal
-        : buildMockDietGoal();
+    if (storedGoal && typeof storedGoal === 'object' && !Array.isArray(storedGoal)) {
+        dietGoal = storedGoal;
+    } else {
+        dietGoal = isDemoUser() ? buildMockDietGoal() : null; // 새 사용자는 목표 없음
+    }
 
     exerciseLogs = storedLogs && typeof storedLogs === 'object' && !Array.isArray(storedLogs)
         ? storedLogs
@@ -1066,7 +1324,72 @@ function toggleDarkMode() {
     showToast(willBeDark ? '다크 모드로 전환되었습니다.' : '라이트 모드로 전환되었습니다.');
 }
 
-function switchTab(tabId) {
+/* ==========================================
+   뒤로가기: 휴대폰 뒤로 버튼을 누르면 MainActivity 가 handleAppBack() 을 부른다
+   열린 화면 닫기 → 이전 탭 → (오늘 루틴에서) 두 번 누르면 종료
+   ========================================== */
+let currentTabId = 'tab-today';
+let tabHistory = []; // 지나온 탭 (오늘 루틴으로 가면 비운다)
+let lastBackPressAt = 0;
+
+function isScreenVisible(elementId) {
+    const element = document.getElementById(elementId);
+    return element !== null && !element.classList.contains('hidden');
+}
+
+// 처음 화면에서는 한 번 더 눌러야 종료 (실수로 꺼지지 않게)
+function confirmAppExit() {
+    if (Date.now() - lastBackPressAt < 2000) return false;
+    lastBackPressAt = Date.now();
+    showToast('뒤로 버튼을 한 번 더 누르면 종료돼요.');
+    return true;
+}
+
+// 앱이 뒤로가기를 처리했으면 true, 앱을 종료해도 되면 false 를 돌려준다
+function handleAppBack() {
+    // 1. 초기값 설정 화면: 이전 단계로 (1단계면 종료 확인)
+    if (isScreenVisible('onboardingScreen')) {
+        if (typeof onboardingStep === 'number' && onboardingStep > 1) {
+            goToOnboardingStep(onboardingStep - 1);
+            return true;
+        }
+        return confirmAppExit();
+    }
+
+    // 2. 로그인 화면
+    if (isScreenVisible('loginScreen')) return confirmAppExit();
+
+    // 3. 열려 있는 창(성공 화면 → 타이머/스톱워치 → 날짜 상세) 닫기
+    const openModal = [
+        ['successModal', closeSuccessModal],
+        ['timerModal', closeTimerModal],
+        ['detailModal', closeDetailModal]
+    ].find(([modalId]) => isModalOpen(document.getElementById(modalId)));
+    if (openModal) {
+        openModal[1]();
+        return true;
+    }
+
+    // 4. 이전 탭으로 (기록이 없으면 오늘 루틴으로)
+    if (currentTabId !== 'tab-today') {
+        switchTab(tabHistory.pop() || 'tab-today', { isBack: true });
+        return true;
+    }
+
+    // 5. 오늘 루틴 화면: 두 번 누르면 종료
+    return confirmAppExit();
+}
+
+function switchTab(tabId, options = {}) {
+    // 뒤로가기용 탭 기록
+    if (tabId === 'tab-today') {
+        tabHistory = [];
+    } else if (!options.isBack && currentTabId !== tabId) {
+        tabHistory.push(currentTabId);
+        if (tabHistory.length > 20) tabHistory.shift();
+    }
+    currentTabId = tabId;
+
     document.querySelectorAll('.tab-screen').forEach(tab => {
         tab.classList.add('hidden');
     });
@@ -1098,10 +1421,14 @@ function switchTab(tabId) {
     }
 
     if (tabId === 'tab-mypage') {
+        applyBodyProfileToInputs(); // 저장하지 않고 나갔던 입력값은 지우고 지금 신체 정보로 다시 채운다
         fillGoalForm();
         renderMyPage();
     }
-    if (tabId === 'tab-body') renderDietSection();
+    if (tabId === 'tab-body') {
+        fillDietPeriodForm();
+        renderDietSection();
+    }
     if (tabId === 'tab-bmr') renderBmrAnalysis();
     if (tabId === 'tab-calorie') prefillCalorieWeight();
 }
@@ -1186,7 +1513,7 @@ async function getWorkoutState(userId) {
     // }
     // return await response.json();
 
-    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 예시 데이터를 만든다
+    // 사용자가 직접 고친 기록이 있으면 그것을 쓰고, 없으면 빈 기록 (시연용 계정만 예시 데이터)
     const storedWorkout = await requestStoredValue('workout', null);
 
     if (storedWorkout && storedWorkout.isCustom && storedWorkout.state) {
@@ -1197,6 +1524,7 @@ async function getWorkoutState(userId) {
     }
 
     isWorkoutCustom = false;
+    if (!isDemoUser()) return {};
     return await requestWorkoutData(userId);
 }
 
@@ -1225,6 +1553,63 @@ function refreshAllViews() {
     if (currentUser !== null) {
         renderMyPage();
         renderDietSection();
+    }
+
+    syncWorkoutAlarms();
+}
+
+/* ==========================================
+   운동 알림: 앱이 꺼져 있어도 정한 시간에 휴대폰 알림이 온다
+   - 안드로이드 앱(MainActivity)의 RoutineNoteApp.setWorkoutAlarms 로 "앞으로 울릴 알림 목록"을 통째로 넘긴다
+   - 넘길 때마다 안드로이드가 예전 알림을 지우고 새로 예약하므로, 완료/삭제/로그아웃도 자동으로 반영된다
+   ========================================== */
+const alarmMaxDays = 30;   // 앞으로 30일 안의 알림만 예약한다
+const alarmMaxCount = 100; // 한 번에 최대 100개까지만 예약한다
+
+function getAlarmTimestamp(dateKey, alarmTime) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const [hour, minute] = alarmTime.split(':').map(Number);
+    return new Date(year, month - 1, day, hour, minute).getTime();
+}
+
+// 아직 안 지난 + 완료하지 않은 운동 중 알림 시간이 있는 것만 모은다
+function buildWorkoutAlarms() {
+    if (currentUser === null) return [];
+
+    const now = Date.now();
+    const limit = now + alarmMaxDays * 24 * 60 * 60 * 1000;
+    const displayName = getDisplayName();
+    const alarms = [];
+
+    Object.keys(workoutState).forEach(dateKey => {
+        workoutState[dateKey].forEach(item => {
+            if (item.completed || !/^\d{2}:\d{2}$/.test(item.alarmTime || '')) return;
+
+            const at = getAlarmTimestamp(dateKey, item.alarmTime);
+            if (at <= now || at > limit) return;
+
+            alarms.push({
+                id: `${dateKey}-${item.id}`,
+                at: at,
+                title: '운동 시간이에요! 💪',
+                text: `${displayName} 님, ${item.name} 할 시간입니다!`
+            });
+        });
+    });
+
+    return alarms.sort((a, b) => a.at - b.at).slice(0, alarmMaxCount);
+}
+
+function syncWorkoutAlarms() {
+    // 브라우저(앱이 아닌 곳)에서는 알림 기능이 없으므로 조용히 넘어간다
+    if (typeof RoutineNoteApp === 'undefined' || typeof RoutineNoteApp.setWorkoutAlarms !== 'function') return;
+    // 운동 기록을 다 불러오기 전에는 빈 목록으로 기존 알림을 지우지 않는다
+    if (currentUser !== null && !isWorkoutLoaded) return;
+
+    try {
+        RoutineNoteApp.setWorkoutAlarms(JSON.stringify(buildWorkoutAlarms()));
+    } catch (error) {
+        console.error('운동 알림 예약 실패:', error);
     }
 }
 
@@ -1332,8 +1717,12 @@ async function addNewRoutineItem(event) {
     event.preventDefault();
 
     const input = document.getElementById('newRoutineInput');
+    const timeInput = document.getElementById('newRoutineTime');
     const inputValue = input.value.trim();
     if (!inputValue) return;
+
+    // 알림 시간(선택): 'HH:MM' 형태일 때만 쓴다. 비워 두면 알림 없이 추가된다.
+    const alarmTime = /^\d{2}:\d{2}$/.test(timeInput.value) ? timeInput.value : '';
 
     if (!workoutState[currentActiveDate]) {
         workoutState[currentActiveDate] = [];
@@ -1343,13 +1732,23 @@ async function addNewRoutineItem(event) {
         id: nextRoutineId++,
         name: inputValue,
         completed: false,
-        routineType: 'CUSTOM'
+        routineType: 'CUSTOM',
+        alarmTime: alarmTime
     });
 
     input.value = '';
+    timeInput.value = '';
     renderModalRoutineList();
     await commitWorkoutChange();
-    showToast('새 운동 항목이 추가되었습니다!');
+
+    const isPastAlarm = alarmTime !== '' && getAlarmTimestamp(currentActiveDate, alarmTime) <= Date.now();
+    if (alarmTime === '') {
+        showToast('새 운동 항목이 추가되었습니다!');
+    } else if (isPastAlarm) {
+        showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
+    } else {
+        showToast(`추가했어요. ${alarmTime}에 알림이 와요!`);
+    }
 }
 
 /* ==========================================
@@ -1536,24 +1935,60 @@ function computeRecordBmi(record) {
     return record.weight / (heightM * heightM);
 }
 
-// 달성도 = (시작 체중 - 현재 체중) / (시작 체중 - 목표 체중)
+/* 다이어트 기간: 시작일 ~ 종료일 사이의 일일 체중 기록으로 변화를 본다 */
+function parseDateKey(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+// 두 날짜 사이의 일수 (같은 날이면 0)
+function getDaysBetween(fromKey, toKey) {
+    return Math.round((parseDateKey(toKey) - parseDateKey(fromKey)) / 86400000);
+}
+
+function formatShortDate(dateKey) {
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))} (${weekdays[parseDateKey(dateKey).getDay()]})`;
+}
+
+function hasTargetWeight() {
+    return dietGoal !== null && Number.isFinite(dietGoal.targetWeight);
+}
+
+// 기간 안(시작일 ~ 종료일)의 체중 기록
+function getPeriodRecords() {
+    if (dietGoal === null) return [];
+    return getBodyRecordsSorted().filter(record =>
+        record.recordDate >= dietGoal.startDate && record.recordDate <= dietGoal.endDate);
+}
+
+// 기간 변화 계산: 시작 체중 = 시작일 당일(또는 그 전) 마지막 기록, 없으면 기간 안 첫 기록
 function calculateDietProgress() {
-    const records = getBodyRecordsSorted();
-    if (records.length === 0 || dietGoal === null) return null;
+    if (dietGoal === null) return null;
 
-    const startRecord = records.find(record => record.recordDate >= dietGoal.startDate) || records[0];
-    const latestRecord = records[records.length - 1];
-    const totalGap = startRecord.weight - dietGoal.targetWeight;
+    const periodRecords = getPeriodRecords();
+    const recordsBeforeStart = getBodyRecordsSorted().filter(record => record.recordDate <= dietGoal.startDate);
+    const startRecord = recordsBeforeStart[recordsBeforeStart.length - 1] || periodRecords[0];
+    if (!startRecord) return null;
 
-    let percent = totalGap === 0 ? 100 : ((startRecord.weight - latestRecord.weight) / totalGap) * 100;
-    percent = Math.max(0, Math.min(100, Math.round(percent)));
+    const latestRecord = periodRecords[periodRecords.length - 1] || startRecord;
+    const targetWeight = hasTargetWeight() ? dietGoal.targetWeight : null;
+
+    // 달성도 = (시작 체중 - 현재 체중) / (시작 체중 - 목표 체중)
+    let percent = null;
+    if (targetWeight !== null) {
+        const totalGap = startRecord.weight - targetWeight;
+        percent = totalGap === 0 ? 100 : ((startRecord.weight - latestRecord.weight) / totalGap) * 100;
+        percent = Math.max(0, Math.min(100, Math.round(percent)));
+    }
 
     return {
         startRecord: startRecord,
         latestRecord: latestRecord,
+        periodRecords: periodRecords,
         startWeight: startRecord.weight,
         currentWeight: latestRecord.weight,
-        targetWeight: dietGoal.targetWeight,
+        targetWeight: targetWeight,
         changeKg: latestRecord.weight - startRecord.weight,
         percent: percent
     };
@@ -1573,20 +2008,32 @@ function appendSvgText(svg, attributes, text) {
     svg.appendChild(textElement);
 }
 
-function drawWeightChart() {
+// 기간(시작일 ~ 종료일)을 가로축으로, 일일 체중 기록을 점으로 그린다
+function drawWeightChart(progress) {
     const svg = document.getElementById('weightChartSvg');
     svg.replaceChildren();
 
-    const records = getBodyRecordsSorted().slice(-8);
-    if (records.length === 0) {
-        appendSvgText(svg, { x: 150, y: 55, 'font-size': 10, fill: '#94a3b8', 'text-anchor': 'middle' },
-            '체중 기록이 없어요. 신체 데이터를 저장해 보세요.');
+    const showMessage = (message) => {
+        appendSvgText(svg, { x: 150, y: 60, 'font-size': 10, fill: '#94a3b8', 'text-anchor': 'middle' }, message);
+    };
+
+    if (dietGoal === null) {
+        showMessage('다이어트 기간을 먼저 설정해 주세요.');
+        return;
+    }
+    if (progress === null) {
+        showMessage('기간 안에 체중 기록이 없어요. 오늘 체중을 기록해 보세요.');
         return;
     }
 
-    const weights = records.map(record => record.weight);
-    const hasGoal = dietGoal !== null && Number.isFinite(dietGoal.targetWeight);
-    const scaleValues = hasGoal ? [...weights, dietGoal.targetWeight] : weights;
+    // 시작 체중이 시작일 전 기록이면 시작일 위치에 붙여서 그린다
+    const chartRecords = [...progress.periodRecords];
+    if (progress.startRecord.recordDate < dietGoal.startDate) {
+        chartRecords.unshift({ ...progress.startRecord, recordDate: dietGoal.startDate, isCarried: true });
+    }
+
+    const weights = chartRecords.map(record => record.weight);
+    const scaleValues = progress.targetWeight !== null ? [...weights, progress.targetWeight] : weights;
 
     // 눈금 값이 정수로 떨어지도록 범위를 짝수 칸으로 맞춘다
     const minValue = Math.floor(Math.min(...scaleValues)) - 1;
@@ -1594,90 +2041,380 @@ function drawWeightChart() {
     if (maxValue - minValue < 4) maxValue = minValue + 4;
     if ((maxValue - minValue) % 2 === 1) maxValue += 1;
 
-    const getY = (weight) => 80 - ((weight - minValue) / (maxValue - minValue)) * 60;
-    const getX = (index) => (records.length === 1 ? 160 : 40 + index * (240 / (records.length - 1)));
+    const totalDays = Math.max(1, getDaysBetween(dietGoal.startDate, dietGoal.endDate));
+    const getX = (dateKey) => 36 + (getDaysBetween(dietGoal.startDate, dateKey) / totalDays) * 252;
+    const getY = (weight) => 88 - ((weight - minValue) / (maxValue - minValue)) * 72;
 
     // 눈금선과 눈금 글자
-    [20, 50, 80].forEach(lineY => {
+    [16, 52, 88].forEach(lineY => {
         svg.appendChild(createSvgElement('line', {
-            x1: 30, y1: lineY, x2: 290, y2: lineY, stroke: '#cbd5e1', 'stroke-dasharray': 2
+            x1: 32, y1: lineY, x2: 290, y2: lineY, stroke: '#cbd5e1', 'stroke-dasharray': 2
         }));
-        const labelValue = maxValue - ((lineY - 20) / 60) * (maxValue - minValue);
-        appendSvgText(svg, { x: 24, y: lineY + 3, 'font-size': 8, fill: '#94a3b8', 'text-anchor': 'end' },
+        const labelValue = maxValue - ((lineY - 16) / 72) * (maxValue - minValue);
+        appendSvgText(svg, { x: 28, y: lineY + 3, 'font-size': 8, fill: '#94a3b8', 'text-anchor': 'end' },
             `${labelValue}kg`);
     });
 
-    // 목표 체중선
-    if (hasGoal) {
-        const goalY = getY(dietGoal.targetWeight);
+    // 오늘 위치 (기간 안일 때만)
+    const todayKey = getTodayKey();
+    if (todayKey > dietGoal.startDate && todayKey < dietGoal.endDate) {
+        const todayX = getX(todayKey);
         svg.appendChild(createSvgElement('line', {
-            x1: 30, y1: goalY, x2: 290, y2: goalY, stroke: '#10b981', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'
+            x1: todayX, y1: 12, x2: todayX, y2: 92, stroke: '#94a3b8', 'stroke-width': 1, 'stroke-dasharray': '2 2'
+        }));
+        appendSvgText(svg, { x: todayX, y: 9, 'font-size': 7.5, fill: '#64748b', 'text-anchor': 'middle' }, '오늘');
+    }
+
+    // 목표 체중선
+    if (progress.targetWeight !== null) {
+        const goalY = getY(progress.targetWeight);
+        svg.appendChild(createSvgElement('line', {
+            x1: 32, y1: goalY, x2: 290, y2: goalY, stroke: '#10b981', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'
         }));
         appendSvgText(svg, { x: 290, y: goalY - 3, 'font-size': 8, fill: '#059669', 'font-weight': 'bold', 'text-anchor': 'end' },
-            `목표 ${dietGoal.targetWeight}kg`);
+            `목표 ${progress.targetWeight}kg`);
     }
 
     // 꺾은선 + 아래 면
-    const points = records.map((record, index) => ({ x: getX(index), y: getY(record.weight) }));
+    const points = chartRecords.map(record => ({ x: getX(record.recordDate), y: getY(record.weight) }));
     const linePath = points
         .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
         .join(' ');
-    const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 90 L ${points[0].x.toFixed(1)} 90 Z`;
 
-    const defs = createSvgElement('defs');
-    const gradient = createSvgElement('linearGradient', { id: 'chartGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
-    gradient.appendChild(createSvgElement('stop', { offset: '0%', 'stop-color': '#3b82f6' }));
-    gradient.appendChild(createSvgElement('stop', { offset: '100%', 'stop-color': '#3b82f6', 'stop-opacity': 0 }));
-    defs.appendChild(gradient);
-    svg.appendChild(defs);
+    if (points.length > 1) {
+        const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} 92 L ${points[0].x.toFixed(1)} 92 Z`;
+        const defs = createSvgElement('defs');
+        const gradient = createSvgElement('linearGradient', { id: 'chartGradient', x1: 0, y1: 0, x2: 0, y2: 1 });
+        gradient.appendChild(createSvgElement('stop', { offset: '0%', 'stop-color': '#3b82f6' }));
+        gradient.appendChild(createSvgElement('stop', { offset: '100%', 'stop-color': '#3b82f6', 'stop-opacity': 0 }));
+        defs.appendChild(gradient);
+        svg.appendChild(defs);
+        svg.appendChild(createSvgElement('path', { d: areaPath, fill: 'url(#chartGradient)', opacity: 0.2 }));
+        svg.appendChild(createSvgElement('path', {
+            d: linePath, fill: 'none', stroke: '#3b82f6', 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+        }));
+    }
 
-    svg.appendChild(createSvgElement('path', { d: areaPath, fill: 'url(#chartGradient)', opacity: 0.2 }));
-    svg.appendChild(createSvgElement('path', {
-        d: linePath, fill: 'none', stroke: '#3b82f6', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-    }));
-
-    // 점 + 날짜 글자
+    // 점 (기록이 많으면 작게, 마지막 기록은 초록색으로 크게)
+    const dotRadius = points.length > 20 ? 2 : 3;
     points.forEach((point, index) => {
         const isLast = index === points.length - 1;
         svg.appendChild(createSvgElement('circle', {
-            cx: point.x, cy: point.y, r: isLast ? 5 : 3.5,
+            cx: point.x, cy: point.y, r: isLast ? 4.5 : dotRadius,
             fill: isLast ? '#10b981' : '#3b82f6',
             stroke: isLast ? '#ffffff' : 'none', 'stroke-width': isLast ? 2 : 0
         }));
-
-        const dateKey = records[index].recordDate;
-        appendSvgText(svg, {
-            x: point.x, y: 105, 'font-size': 8,
-            fill: isLast ? '#3b82f6' : '#64748b', 'font-weight': isLast ? 'bold' : 'normal', 'text-anchor': 'middle'
-        }, `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`);
     });
 
-    svg.setAttribute('aria-label', `체중 변화 그래프: ${weights[0]}kg에서 ${weights[weights.length - 1]}kg`);
+    // 가로축: 시작일 / 종료일
+    const formatAxisDate = (dateKey) => `${Number(dateKey.slice(5, 7))}/${Number(dateKey.slice(8, 10))}`;
+    appendSvgText(svg, { x: 36, y: 108, 'font-size': 8, fill: '#64748b', 'text-anchor': 'start' },
+        `${formatAxisDate(dietGoal.startDate)} 시작`);
+    appendSvgText(svg, { x: 288, y: 108, 'font-size': 8, fill: '#64748b', 'text-anchor': 'end' },
+        `${formatAxisDate(dietGoal.endDate)} 종료`);
+
+    svg.setAttribute('aria-label',
+        `기간 동안 체중 변화 그래프: ${progress.startWeight}kg에서 ${progress.currentWeight}kg, 기록 ${progress.periodRecords.length}개`);
+}
+
+// 일별 기록 목록 (최근 날짜가 위, 전날 기록과 비교)
+function renderDietRecordList(progress) {
+    const listElement = document.getElementById('dietRecordList');
+    listElement.replaceChildren();
+
+    const records = progress ? progress.periodRecords : [];
+    if (records.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'px-3 py-4 text-center text-xs text-slate-400';
+        emptyItem.textContent = dietGoal === null ? '기간을 설정하면 기록이 여기에 쌓여요.' : '아직 기간 안에 기록이 없어요.';
+        listElement.appendChild(emptyItem);
+        return;
+    }
+
+    const allRecords = getBodyRecordsSorted();
+    [...records].reverse().forEach(record => {
+        const recordIndex = allRecords.findIndex(item => item.recordDate === record.recordDate);
+        const previousRecord = recordIndex > 0 ? allRecords[recordIndex - 1] : null;
+        const diffKg = previousRecord ? record.weight - previousRecord.weight : null;
+
+        const item = document.createElement('li');
+        item.className = 'flex items-center gap-2 px-3 py-2.5 text-xs bg-white dark:bg-slate-800';
+
+        const dateCell = document.createElement('span');
+        dateCell.className = 'w-[4.5rem] shrink-0 whitespace-nowrap font-medium text-slate-500';
+        dateCell.textContent = formatShortDate(record.recordDate);
+
+        const weightCell = document.createElement('span');
+        weightCell.className = 'flex-1 whitespace-nowrap font-bold text-slate-800 dark:text-slate-100';
+        weightCell.textContent = `${record.weight.toFixed(1)} kg`;
+
+        const diffCell = document.createElement('span');
+        diffCell.className = 'w-11 shrink-0 text-right font-bold';
+        if (diffKg === null || Math.abs(diffKg) < 0.05) {
+            diffCell.classList.add('text-slate-400');
+            diffCell.textContent = diffKg === null ? '-' : '0.0';
+        } else {
+            diffCell.classList.add(diffKg < 0 ? 'text-emerald-600' : 'text-rose-500');
+            diffCell.textContent = `${diffKg > 0 ? '+' : ''}${diffKg.toFixed(1)}`;
+        }
+
+        const bmiCell = document.createElement('span');
+        bmiCell.className = 'w-16 shrink-0 whitespace-nowrap text-right text-slate-500';
+        bmiCell.textContent = `BMI ${computeRecordBmi(record).toFixed(1)}`;
+
+        // 실수로 지우지 않도록 두 번 눌러야 삭제된다
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'w-9 shrink-0 text-right text-slate-400 hover:text-rose-500 font-bold whitespace-nowrap';
+        deleteButton.setAttribute('aria-label', `${formatShortDate(record.recordDate)} 기록 삭제`);
+        deleteButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        deleteButton.addEventListener('click', () => {
+            if (deleteButton.dataset.armed === 'true') {
+                deleteWeightLog(record.recordDate);
+                return;
+            }
+            deleteButton.dataset.armed = 'true';
+            deleteButton.textContent = '삭제?';
+            deleteButton.classList.add('text-rose-500');
+            setTimeout(() => {
+                if (!deleteButton.isConnected) return;
+                deleteButton.dataset.armed = 'false';
+                deleteButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+                deleteButton.classList.remove('text-rose-500');
+            }, 3000);
+        });
+
+        item.append(dateCell, weightCell, diffCell, bmiCell, deleteButton);
+        listElement.appendChild(item);
+    });
+}
+
+// 진행 일수 / 남은 일수 / 주당 변화
+function buildDietDayText(progress) {
+    if (dietGoal === null) return '기간을 정하고 매일 체중을 기록하면 변화가 보여요.';
+
+    const todayKey = getTodayKey();
+    const totalDays = getDaysBetween(dietGoal.startDate, dietGoal.endDate) + 1;
+    let dayText;
+    if (todayKey < dietGoal.startDate) {
+        dayText = `시작까지 ${getDaysBetween(todayKey, dietGoal.startDate)}일 남음 · 총 ${totalDays}일`;
+    } else if (todayKey > dietGoal.endDate) {
+        dayText = `기간 종료 · 총 ${totalDays}일`;
+    } else {
+        dayText = `${getDaysBetween(dietGoal.startDate, todayKey) + 1}일째 / 총 ${totalDays}일 · ${getDaysBetween(todayKey, dietGoal.endDate)}일 남음`;
+    }
+
+    if (progress !== null) {
+        const recordDays = getDaysBetween(progress.startRecord.recordDate, progress.latestRecord.recordDate);
+        dayText += ` · 기록 ${progress.periodRecords.length}회`;
+        if (recordDays >= 7) {
+            const weeklyKg = (progress.changeKg / recordDays) * 7;
+            dayText += ` · 주당 ${weeklyKg > 0 ? '+' : ''}${weeklyKg.toFixed(2)}kg`;
+        }
+    }
+    return dayText;
 }
 
 function renderDietSection() {
-    if (currentUser === null || dietGoal === null) return;
+    if (currentUser === null) return;
 
     const setText = (elementId, text) => {
         document.getElementById(elementId).textContent = text;
     };
-
-    setText('dietPeriodText', `(${dietGoal.startDate} ~ ${dietGoal.endDate}${dietGoal.isActive ? '' : ', 종료됨'})`);
-    drawWeightChart();
-
     const progress = calculateDietProgress();
-    if (progress === null) return;
 
-    const startBmi = computeRecordBmi(progress.startRecord);
-    const changeSign = progress.changeKg > 0 ? '+' : '';
+    // 내 신체 정보 요약 (수정은 마이페이지에서)
+    setText('bodySummaryText',
+        `${bodyProfile.gender === 'male' ? '남성' : '여성'} · ${bodyProfile.age}세 · ${bodyProfile.height}cm · ${bodyProfile.weight}kg`);
 
-    setText('dietAchieveText', `${progress.percent}% 달성`);
-    document.getElementById('dietProgressBar').style.width = progress.percent + '%';
-    setText('dietChangeText', `${changeSign}${progress.changeKg.toFixed(1)} kg`);
-    setText('dietBurnedText', `약 ${estimateBurnedKcal(dietGoal.startDate, getTodayKey()).toLocaleString()} kcal`);
-    setText('dietBeforeWeightText', `${progress.startWeight.toFixed(1)} kg`);
-    setText('dietBeforeBmiText', `${startBmi.toFixed(1)} (${getBmiCategory(startBmi).label})`);
-    setText('dietTargetText', `${progress.targetWeight} kg`);
+    setText('dietPeriodText', dietGoal === null
+        ? '다이어트 기간을 설정해 주세요'
+        : `${dietGoal.startDate} ~ ${dietGoal.endDate}`);
+    setText('dietDayText', buildDietDayText(progress));
+
+    // 시작 / 현재 / 변화
+    const changeElement = document.getElementById('dietChangeText');
+    changeElement.classList.remove('text-emerald-600', 'text-rose-500');
+    if (progress !== null) {
+        setText('dietStartWeightText', `${progress.startWeight.toFixed(1)} kg`);
+        setText('dietCurrentWeightText', `${progress.currentWeight.toFixed(1)} kg`);
+        setText('dietChangeText', `${progress.changeKg > 0 ? '+' : ''}${progress.changeKg.toFixed(1)} kg`);
+        if (progress.changeKg < 0) changeElement.classList.add('text-emerald-600');
+        if (progress.changeKg > 0) changeElement.classList.add('text-rose-500');
+    } else {
+        ['dietStartWeightText', 'dietCurrentWeightText', 'dietChangeText'].forEach(elementId => setText(elementId, '-'));
+    }
+
+    drawWeightChart(progress);
+
+    // 현재 BMI: 기간 안 가장 최근 기록 → 없으면 전체 중 가장 최근 기록 → 없으면 신체 정보
+    const allRecords = getBodyRecordsSorted();
+    const latestRecord = progress !== null ? progress.latestRecord : allRecords[allRecords.length - 1];
+    const currentWeight = latestRecord ? latestRecord.weight : bodyProfile.weight;
+    const currentMetrics = computeBodyMetrics({ ...bodyProfile, weight: currentWeight });
+    renderBodyMetrics(currentMetrics);
+
+    // 현재 BMI 글자색: 저체중 파랑 / 정상 초록 / 과체중 주황 / 비만 빨강
+    const bmiColorClasses = {
+        '저체중': ['text-blue-600', 'dark:text-blue-400'],
+        '정상': ['text-emerald-600', 'dark:text-emerald-400'],
+        '과체중': ['text-amber-600', 'dark:text-amber-400'],
+        '비만': ['text-rose-600', 'dark:text-rose-400']
+    };
+    const bmiTextElement = document.getElementById('resBmiText');
+    Object.values(bmiColorClasses).flat().forEach(className => bmiTextElement.classList.remove(className));
+    bmiTextElement.classList.add(...bmiColorClasses[currentMetrics.label]);
+
+    if (progress !== null) {
+        const startBmi = computeRecordBmi(progress.startRecord);
+        const bmiDiff = currentMetrics.bmi - startBmi;
+        setText('dietBeforeBmiText',
+            `${startBmi.toFixed(1)} → ${currentMetrics.bmi.toFixed(1)} (${bmiDiff > 0 ? '+' : ''}${bmiDiff.toFixed(1)})`);
+    } else {
+        setText('dietBeforeBmiText', '-');
+    }
+
+    // 목표 달성도
+    if (progress !== null && progress.percent !== null) {
+        setText('dietAchieveText', `${progress.percent}% 달성`);
+        document.getElementById('dietProgressBar').style.width = progress.percent + '%';
+    } else {
+        setText('dietAchieveText', hasTargetWeight() ? '-' : '목표 체중 미설정');
+        document.getElementById('dietProgressBar').style.width = '0%';
+    }
+    setText('dietTargetText', hasTargetWeight() ? `${dietGoal.targetWeight} kg` : '-');
+
+    if (dietGoal !== null) {
+        const burnedEndKey = getTodayKey() < dietGoal.endDate ? getTodayKey() : dietGoal.endDate;
+        setText('dietBurnedText', `약 ${estimateBurnedKcal(dietGoal.startDate, burnedEndKey).toLocaleString()} kcal`);
+    } else {
+        setText('dietBurnedText', '-');
+    }
+
+    renderDietRecordList(progress);
+}
+
+// 기간 설정 칸 채우기 (목표가 없으면 오늘부터 30일)
+function fillDietPeriodForm() {
+    const todayKey = getTodayKey();
+    document.getElementById('periodStartDate').value = dietGoal ? dietGoal.startDate : todayKey;
+    document.getElementById('periodEndDate').value = dietGoal ? dietGoal.endDate : formatDateKey(addDays(new Date(), 29));
+    document.getElementById('periodTargetWeight').value = hasTargetWeight() ? dietGoal.targetWeight : '';
+
+    const logDateInput = document.getElementById('weightLogDate');
+    logDateInput.value = todayKey;
+    logDateInput.max = todayKey;
+    const latestRecord = getBodyRecordsSorted().pop();
+    document.getElementById('weightLogValue').placeholder = latestRecord ? String(latestRecord.weight) : String(bodyProfile.weight);
+}
+
+async function saveDietPeriod(event) {
+    event.preventDefault();
+    if (currentUser === null) return;
+
+    const startDate = document.getElementById('periodStartDate').value;
+    const endDate = document.getElementById('periodEndDate').value;
+    const targetText = document.getElementById('periodTargetWeight').value.trim();
+    const targetWeight = targetText === '' ? null : parseFloat(targetText);
+
+    if (!startDate || !endDate) {
+        showToast('시작일과 종료일을 모두 선택해 주세요.');
+        return;
+    }
+    if (startDate > endDate) {
+        showToast('종료일은 시작일보다 빠를 수 없어요.');
+        return;
+    }
+    if (targetWeight !== null && (!Number.isFinite(targetWeight) || targetWeight < 20 || targetWeight > 300)) {
+        showToast('목표 체중은 20~300kg 사이로 입력해 주세요.');
+        return;
+    }
+
+    dietGoal = {
+        goalId: dietGoal ? dietGoal.goalId : 1,
+        userId: currentUser.userId,
+        targetWeight: targetWeight,
+        startDate: startDate,
+        endDate: endDate,
+        isActive: getTodayKey() <= endDate
+    };
+
+    await saveStoredValue('dietGoal', dietGoal);
+    fillGoalForm();
+    renderDietSection();
+    renderMyPage();
+    showToast('다이어트 기간을 저장했어요.');
+}
+
+// 고른 날짜의 체중 기록을 새로 만들거나 덮어쓴다
+async function saveWeightLog(event) {
+    event.preventDefault();
+    if (currentUser === null) return;
+
+    const dateKey = document.getElementById('weightLogDate').value;
+    const weight = parseFloat(document.getElementById('weightLogValue').value);
+
+    if (!dateKey) {
+        showToast('날짜를 선택해 주세요.');
+        return;
+    }
+    if (dateKey > getTodayKey()) {
+        showToast('미래 날짜에는 기록할 수 없어요.');
+        return;
+    }
+    if (!Number.isFinite(weight) || weight < 20 || weight > 300) {
+        showToast('체중은 20~300kg 사이로 입력해 주세요.');
+        return;
+    }
+
+    const roundedWeight = Math.round(weight * 10) / 10;
+    const metrics = computeBodyMetrics({ ...bodyProfile, weight: roundedWeight });
+    const existingIndex = bodyRecords.findIndex(record => record.recordDate === dateKey);
+    const record = {
+        bodyRecordId: existingIndex >= 0
+            ? bodyRecords[existingIndex].bodyRecordId
+            : bodyRecords.reduce((maxId, item) => Math.max(maxId, item.bodyRecordId || 0), 0) + 1,
+        userId: currentUser.userId,
+        recordDate: dateKey,
+        height: bodyProfile.height,
+        weight: roundedWeight,
+        bmi: Number(metrics.bmi.toFixed(2)),
+        bmr: Math.round(metrics.bmr)
+    };
+
+    if (existingIndex >= 0) {
+        bodyRecords[existingIndex] = record;
+    } else {
+        bodyRecords.push(record);
+    }
+    bodyRecords.sort((a, b) => a.recordDate.localeCompare(b.recordDate));
+
+    await afterWeightRecordsChanged();
+    document.getElementById('weightLogValue').value = '';
+    showToast(`${formatShortDate(dateKey)} 체중 ${roundedWeight}kg을 기록했어요.`);
+}
+
+async function deleteWeightLog(dateKey) {
+    bodyRecords = bodyRecords.filter(record => record.recordDate !== dateKey);
+    await afterWeightRecordsChanged();
+    showToast(`${formatShortDate(dateKey)} 기록을 삭제했어요.`);
+}
+
+// 가장 최근 기록을 지금 몸무게로 삼고, 저장한 뒤 화면을 다시 그린다
+async function afterWeightRecordsChanged() {
+    const latestRecord = getBodyRecordsSorted().pop();
+    if (latestRecord) bodyProfile = { ...bodyProfile, weight: latestRecord.weight };
+
+    await Promise.all([
+        saveStoredValue('bodyProfile', bodyProfile),
+        saveStoredValue('bodyRecords', bodyRecords)
+    ]);
+
+    applyBodyProfileToInputs();
+    fillDietPeriodForm();
+    renderDietSection();
+    renderMyPage();
+    renderBmrAnalysis();
 }
 
 /* ==========================================
@@ -1894,7 +2631,13 @@ async function finishRunningAndSave() {
     });
     await saveStoredValue('gpsLogs', gpsLogs);
     // 서버가 준비되면 여기서 saveGpsRecord(selectionId, distance, calories, routePath) 를 호출한다.
-
+    // 서버(MySQL)에도 저장한다. 실패해도 기기 저장은 유지된다.
+        const savedToServer = await saveGpsRecord(
+            null,
+            Number(distanceKm.toFixed(2)),
+            Math.round(caloriesBurned),
+            getRunPathForSave()
+        );
     // 오늘의 런닝 항목을 완료 처리한다 (없으면 새로 만든다)
     const todayKey = getTodayKey();
     const wasCompleted = getDayStatus(workoutState[todayKey]) === 'completed';
@@ -1912,7 +2655,7 @@ async function finishRunningAndSave() {
 
     await commitWorkoutChange();
     resetRunningData();
-    showToast('런닝 기록을 저장했어요.');
+    showToast(savedToServer ? '런닝 기록을 저장했어요.' : '기기에는 저장했지만 서버 저장은 실패했어요.');
 
     if (!wasCompleted && getDayStatus(workoutState[todayKey]) === 'completed') {
         openSuccessModal();
@@ -1963,17 +2706,22 @@ function renderMyPage() {
         : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`;
 
     // 신체 정보
-    setText('myBodyBasis', `${bodyProfile.gender === 'male' ? '남성' : '여성'}, ${bodyProfile.age}세`);
-    setText('myHeight', `${bodyProfile.height} cm`);
-    setText('myWeight', `${bodyProfile.weight} kg`);
     setText('myBmi', `${metrics.bmi.toFixed(1)} (${metrics.label})`);
     setText('myBmr', `${Math.round(metrics.bmr).toLocaleString()} kcal`);
 
     // 다이어트 목표 진행
     const progress = calculateDietProgress();
     if (progress !== null) {
-        setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
-        document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+        if (progress.percent !== null) {
+            setText('goalProgressText', `${progress.percent}% 달성 (현재 ${progress.currentWeight}kg, 목표 ${progress.targetWeight}kg)`);
+            document.getElementById('goalProgressBar').style.width = progress.percent + '%';
+        } else {
+            setText('goalProgressText', `현재 ${progress.currentWeight}kg (목표 체중을 정하면 달성도가 보여요)`);
+            document.getElementById('goalProgressBar').style.width = '0%';
+        }
+    } else {
+        setText('goalProgressText', '아직 설정한 목표가 없어요');
+        document.getElementById('goalProgressBar').style.width = '0%';
     }
 
     // 운동 통계
@@ -1988,7 +2736,14 @@ function renderMyPage() {
 }
 
 function fillGoalForm() {
-    if (dietGoal === null) return;
+    if (dietGoal === null) {
+        // 목표가 없으면 다른 계정의 값이 남지 않도록 입력칸을 비운다
+        ['goalTargetWeight', 'goalStartDate', 'goalEndDate'].forEach(elementId => {
+            document.getElementById(elementId).value = '';
+        });
+        document.getElementById('goalIsActive').checked = true;
+        return;
+    }
 
     document.getElementById('goalTargetWeight').value = dietGoal.targetWeight;
     document.getElementById('goalStartDate').value = dietGoal.startDate;
@@ -2028,6 +2783,7 @@ async function saveDietGoal(event) {
     };
 
     await saveStoredValue('dietGoal', dietGoal);
+    fillDietPeriodForm();
     renderDietSection();
     renderMyPage();
     showToast('다이어트 목표가 저장되었습니다.');
@@ -2055,17 +2811,16 @@ async function handleResetData() {
     userDataKeys.forEach(name => removeStorage(getUserKey(name)));
 
     // 예시 데이터로 되돌리는 게 아니라 정말 비운다: 운동 기록 / 운동일지 / GPS 기록은 0건,
-    // 신체 기록은 오늘 값 1건만 남기고, 목표는 기본값으로 다시 만든다.
+    // 신체 기록은 지금 신체 정보(초기값 설정에서 받은 값)로 오늘 값 1건만 남기고, 다이어트 목표는 없앤다.
     workoutState = {};
     workoutLogs = [];
     nextRoutineId = 1;
     exerciseLogs = {};
     gpsLogs = [];
     nextExerciseLogId = 1;
-    bodyProfile = { gender: 'male', age: 28, height: 175, weight: 72.5 };
     bodyRecords = [];
     saveBodyRecord(bodyProfile, computeBodyMetrics(bodyProfile));
-    dietGoal = buildMockDietGoal();
+    dietGoal = null;
 
     await Promise.all([
         persistWorkoutState(),
@@ -2082,6 +2837,7 @@ async function handleResetData() {
     isWorkoutCustom = true;
     refreshAllViews();
     fillGoalForm();
+    fillDietPeriodForm();
     renderBmrAnalysis();
     showToast('내 기록을 모두 삭제했어요.');
 }
@@ -2188,6 +2944,8 @@ function bindFeatureEvents() {
 
     // 마이페이지
     document.getElementById('goalForm').addEventListener('submit', saveDietGoal);
+    document.getElementById('dietPeriodForm').addEventListener('submit', saveDietPeriod);
+    document.getElementById('weightLogForm').addEventListener('submit', saveWeightLog);
     document.getElementById('darkModeSwitch').addEventListener('click', toggleDarkMode);
     document.getElementById('logoutButton').addEventListener('click', logout);
     document.getElementById('resetDataButton').addEventListener('click', handleResetData);
@@ -2228,3 +2986,4 @@ function showToast(msg) {
         toast.classList.add('opacity-0', 'pointer-events-none');
     }, 2400);
 }
+
