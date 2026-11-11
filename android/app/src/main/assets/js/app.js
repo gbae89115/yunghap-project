@@ -507,14 +507,6 @@ function createModalRoutineRow(item, dateStr) {
 
     leftElement.append(toggleButton, nameElement);
 
-    if (item.alarmTime) {
-        const alarmElement = document.createElement('span');
-        alarmElement.className = 'text-[10px] font-bold text-brand-600 dark:text-brand-300 whitespace-nowrap';
-        alarmElement.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
-        alarmElement.append(item.alarmTime);
-        leftElement.appendChild(alarmElement);
-    }
-
     const rightElement = document.createElement('div');
     rightElement.className = 'flex items-center space-x-1.5';
 
@@ -1561,7 +1553,7 @@ function refreshAllViews() {
 /* ==========================================
    운동 알림: 앱이 꺼져 있어도 정한 시간에 휴대폰 알림이 온다
    - 안드로이드 앱(MainActivity)의 RoutineNoteApp.setWorkoutAlarms 로 "앞으로 울릴 알림 목록"을 통째로 넘긴다
-   - 넘길 때마다 안드로이드가 예전 알림을 지우고 새로 예약하므로, 완료/삭제/로그아웃도 자동으로 반영된다
+   - 넘길 때마다 안드로이드가 예전 알림을 지우고 새로 예약하므로, 추가/삭제/로그아웃도 자동으로 반영된다
    ========================================== */
 const alarmMaxDays = 30;   // 앞으로 30일 안의 알림만 예약한다
 const alarmMaxCount = 100; // 한 번에 최대 100개까지만 예약한다
@@ -1572,7 +1564,15 @@ function getAlarmTimestamp(dateKey, alarmTime) {
     return new Date(year, month - 1, day, hour, minute).getTime();
 }
 
-// 아직 안 지난 + 완료하지 않은 운동 중 알림 시간이 있는 것만 모은다
+// '오후 6:30' 처럼 한국어로 보여 준다 (alarmTime 은 '18:30' 형태로 저장)
+function formatAlarmTimeKorean(alarmTime) {
+    const [hour, minute] = alarmTime.split(':').map(Number);
+    const period = hour < 12 ? '오전' : '오후';
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${period} ${hour12}:${String(minute).padStart(2, '0')}`;
+}
+
+// 운동일지에 적은 운동 중, 알림 시간이 있고 아직 안 지난 것만 모은다
 function buildWorkoutAlarms() {
     if (currentUser === null) return [];
 
@@ -1581,18 +1581,18 @@ function buildWorkoutAlarms() {
     const displayName = getDisplayName();
     const alarms = [];
 
-    Object.keys(workoutState).forEach(dateKey => {
-        workoutState[dateKey].forEach(item => {
-            if (item.completed || !/^\d{2}:\d{2}$/.test(item.alarmTime || '')) return;
+    Object.keys(exerciseLogs).forEach(dateKey => {
+        (exerciseLogs[dateKey] || []).forEach(entry => {
+            if (!/^\d{2}:\d{2}$/.test(entry.alarmTime || '')) return;
 
-            const at = getAlarmTimestamp(dateKey, item.alarmTime);
+            const at = getAlarmTimestamp(dateKey, entry.alarmTime);
             if (at <= now || at > limit) return;
 
             alarms.push({
-                id: `${dateKey}-${item.id}`,
+                id: `${dateKey}-log${entry.id}`,
                 at: at,
                 title: '운동 시간이에요! 💪',
-                text: `${displayName} 님, ${item.name} 할 시간입니다!`
+                text: `${displayName} 님, ${entry.exerciseName} 할 시간입니다!`
             });
         });
     });
@@ -1717,12 +1717,8 @@ async function addNewRoutineItem(event) {
     event.preventDefault();
 
     const input = document.getElementById('newRoutineInput');
-    const timeInput = document.getElementById('newRoutineTime');
     const inputValue = input.value.trim();
     if (!inputValue) return;
-
-    // 알림 시간(선택): 'HH:MM' 형태일 때만 쓴다. 비워 두면 알림 없이 추가된다.
-    const alarmTime = /^\d{2}:\d{2}$/.test(timeInput.value) ? timeInput.value : '';
 
     if (!workoutState[currentActiveDate]) {
         workoutState[currentActiveDate] = [];
@@ -1732,23 +1728,13 @@ async function addNewRoutineItem(event) {
         id: nextRoutineId++,
         name: inputValue,
         completed: false,
-        routineType: 'CUSTOM',
-        alarmTime: alarmTime
+        routineType: 'CUSTOM'
     });
 
     input.value = '';
-    timeInput.value = '';
     renderModalRoutineList();
     await commitWorkoutChange();
-
-    const isPastAlarm = alarmTime !== '' && getAlarmTimestamp(currentActiveDate, alarmTime) <= Date.now();
-    if (alarmTime === '') {
-        showToast('새 운동 항목이 추가되었습니다!');
-    } else if (isPastAlarm) {
-        showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
-    } else {
-        showToast(`추가했어요. ${alarmTime}에 알림이 와요!`);
-    }
+    showToast('새 운동 항목이 추가되었습니다!');
 }
 
 /* ==========================================
@@ -2441,6 +2427,19 @@ function createExerciseLogRow(entry, dateStr) {
     nameElement.textContent = entry.exerciseName;
     nameElement.setAttribute('title', entry.exerciseName);
 
+    // 알림 시간이 있으면 운동명 아래에 작게 보여 준다
+    let nameCell = nameElement;
+    if (entry.alarmTime) {
+        const alarmElement = document.createElement('span');
+        alarmElement.className = 'block text-[9px] font-bold text-brand-600 dark:text-brand-300';
+        alarmElement.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
+        alarmElement.append(formatAlarmTimeKorean(entry.alarmTime));
+
+        nameCell = document.createElement('div');
+        nameCell.className = 'min-w-0';
+        nameCell.append(nameElement, alarmElement);
+    }
+
     const setElement = document.createElement('span');
     setElement.className = 'text-center';
     setElement.textContent = `${entry.setCount}세트`;
@@ -2460,7 +2459,7 @@ function createExerciseLogRow(entry, dateStr) {
     deleteButton.appendChild(createIcon('fa-solid fa-xmark text-xs'));
     deleteButton.addEventListener('click', () => deleteExerciseLog(dateStr, entry.id));
 
-    rowElement.append(nameElement, setElement, weightElement, repsElement, deleteButton);
+    rowElement.append(nameCell, setElement, weightElement, repsElement, deleteButton);
     return rowElement;
 }
 
@@ -2481,6 +2480,24 @@ function renderExerciseLogList() {
     document.getElementById('exerciseLogSummary').textContent = entries.length > 0
         ? `총 ${entries.length}종목, 볼륨 ${Math.round(totalVolume).toLocaleString()} kg`
         : '';
+}
+
+// 오전/오후 + 시 + 분 선택칸에서 알림 시간('HH:MM')을 읽는다. 아무것도 안 골랐으면 알림 없음('')
+function readLogAlarmTime() {
+    const period = document.getElementById('logAlarmAmPm').value;
+    const hourText = document.getElementById('logAlarmHour').value;
+    const minuteText = document.getElementById('logAlarmMinute').value;
+
+    if (period === '' && hourText === '' && minuteText === '') return { time: '', error: '' };
+    if (period === '' || hourText === '') {
+        return { time: '', error: '알림 시간은 오전/오후와 시를 골라 주세요.' };
+    }
+
+    let hour = parseInt(hourText, 10) % 12;
+    if (period === 'PM') hour += 12;
+    const minute = minuteText === '' ? 0 : parseInt(minuteText, 10);
+
+    return { time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, error: '' };
 }
 
 async function addExerciseLog(event) {
@@ -2508,6 +2525,12 @@ async function addExerciseLog(event) {
         return;
     }
 
+    const alarm = readLogAlarmTime();
+    if (alarm.error) {
+        showToast(alarm.error);
+        return;
+    }
+
     if (!exerciseLogs[currentActiveDate]) {
         exerciseLogs[currentActiveDate] = [];
     }
@@ -2516,20 +2539,30 @@ async function addExerciseLog(event) {
         exerciseName: exerciseName,
         setCount: setCount,
         weight: weight,
-        reps: reps
+        reps: reps,
+        alarmTime: alarm.time
     });
 
-    ['logExerciseName', 'logSets', 'logWeight', 'logReps'].forEach(inputId => {
+    ['logExerciseName', 'logSets', 'logWeight', 'logReps', 'logAlarmAmPm', 'logAlarmHour', 'logAlarmMinute'].forEach(inputId => {
         document.getElementById(inputId).value = '';
     });
     renderExerciseLogList();
+    syncWorkoutAlarms();
     await saveStoredValue('exerciseLogs', exerciseLogs);
-    showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+
+    if (alarm.time === '') {
+        showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+    } else if (getAlarmTimestamp(currentActiveDate, alarm.time) <= Date.now()) {
+        showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
+    } else {
+        showToast(`추가했어요. ${formatAlarmTimeKorean(alarm.time)}에 알림이 와요!`);
+    }
 }
 
 async function deleteExerciseLog(dateStr, logId) {
     exerciseLogs[dateStr] = (exerciseLogs[dateStr] || []).filter(entry => entry.id !== logId);
     renderExerciseLogList();
+    syncWorkoutAlarms(); // 지운 운동의 알림도 함께 취소한다
     await saveStoredValue('exerciseLogs', exerciseLogs);
     showToast('운동 기록을 삭제했어요.');
 }

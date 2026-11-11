@@ -735,18 +735,12 @@
 
                 <!-- Modal V2 Feature: Add New Item Inline Form -->
                 <div class="px-3.5 pb-2 border-t border-slate-100 dark:border-slate-700/60 pt-2.5">
-                    <form onsubmit="addNewRoutineItem(event)" class="flex flex-wrap items-center gap-2">
-                        <input type="text" id="newRoutineInput" placeholder="+ 새 운동 루틴 입력..." class="flex-1 min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow whitespace-nowrap">
+                    <form onsubmit="addNewRoutineItem(event)" class="flex items-center gap-2">
+                        <input type="text" id="newRoutineInput" placeholder="+ 새 운동 루틴 입력..." class="flex-1 bg-slate-100 dark:bg-slate-900 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow">
                             추가
                         </button>
-                        <!-- 알림 시간(선택): 정하면 앱이 꺼져 있어도 그 시간에 휴대폰 알림이 온다 -->
-                        <label class="basis-full flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-                            <span class="whitespace-nowrap"><i class="fa-regular fa-bell" aria-hidden="true"></i> 알림 시간 (선택)</span>
-                            <input type="time" id="newRoutineTime" class="flex-1 min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-                        </label>
                     </form>
-                    <p class="text-[10px] text-slate-400 mt-1.5 px-1">시간을 정하면 앱이 꺼져 있어도 그 시간에 알림이 와요.</p>
                 </div>
 
                 <!-- Modal Footer -->
@@ -773,6 +767,16 @@
                             <input type="number" id="logSets" min="1" max="20" inputmode="numeric" placeholder="세트" aria-label="세트 수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
                             <input type="number" id="logWeight" min="0" max="500" step="0.5" inputmode="decimal" placeholder="중량(kg)" aria-label="중량 kg" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
                             <input type="number" id="logReps" min="1" max="200" inputmode="numeric" placeholder="횟수" aria-label="횟수" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <!-- 알림 시간(선택): 정하면 앱이 꺼져 있어도 그 시간에 휴대폰 알림이 온다 (전부 한국어 선택칸) -->
+                        <div class="space-y-1">
+                            <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300"><i class="fa-regular fa-bell" aria-hidden="true"></i> 알림 시간 (선택)</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <select id="logAlarmAmPm" aria-label="오전 오후" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"><option value="">오전/오후</option><option value="AM">오전</option><option value="PM">오후</option></select>
+                                <select id="logAlarmHour" aria-label="시" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"><option value="">시</option><option value="1">1시</option><option value="2">2시</option><option value="3">3시</option><option value="4">4시</option><option value="5">5시</option><option value="6">6시</option><option value="7">7시</option><option value="8">8시</option><option value="9">9시</option><option value="10">10시</option><option value="11">11시</option><option value="12">12시</option></select>
+                                <select id="logAlarmMinute" aria-label="분" class="min-w-0 bg-slate-100 dark:bg-slate-900 text-xs px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"><option value="">분</option><option value="0">00분</option><option value="5">05분</option><option value="10">10분</option><option value="15">15분</option><option value="20">20분</option><option value="25">25분</option><option value="30">30분</option><option value="35">35분</option><option value="40">40분</option><option value="45">45분</option><option value="50">50분</option><option value="55">55분</option></select>
+                            </div>
+                            <p class="text-[10px] text-slate-400">시간을 정하면 앱이 꺼져 있어도 그 시간에 알림이 와요.</p>
                         </div>
                         <button type="submit" class="w-full text-brand-600 dark:text-brand-400 border border-brand-500/60 hover:bg-brand-50 dark:hover:bg-slate-700 font-bold py-2 rounded-xl text-xs transition"><i class="fa-solid fa-plus mr-1" aria-hidden="true"></i>추가운동</button>
                     </form>
