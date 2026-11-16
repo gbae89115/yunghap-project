@@ -650,3 +650,52 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     font-weight: 700;
     color: #cbd5e1;
 }
+
+/* ==========================================
+   시작 가이드 (오늘 루틴 탭, js/guide.js)
+   ========================================== */
+.start-guide {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1.5px dashed #93c5fd;
+    background: #eff6ff;
+}
+.start-guide[hidden] { display: none; }
+.dark .start-guide { border-color: #1e40af; background: rgba(30, 58, 138, 0.25); }
+.guide-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    text-align: left;
+}
+.dark .guide-step { border-color: #334155; background: #1e293b; }
+.guide-step-check {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    border: 2px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: transparent;
+}
+.dark .guide-step-check { border-color: #475569; }
+.guide-step-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.guide-step-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.guide-step-desc { font-size: 12px; color: #64748b; }
+.dark .guide-step-title { color: #f1f5f9; }
+.dark .guide-step-desc { color: #94a3b8; }
+.guide-step-arrow { font-size: 12px; color: #94a3b8; }
+.guide-step.is-done .guide-step-check { border-color: #10b981; background: #10b981; color: #ffffff; }
+.guide-step.is-done .guide-step-title { color: #94a3b8; text-decoration: line-through; }
+.guide-step.is-done .guide-step-arrow { visibility: hidden; }

@@ -1540,6 +1540,7 @@ function refreshAllViews() {
     renderRoutineSelection();
     renderCalendarEvents();
     renderStreak();
+    if (typeof renderStartGuide === 'function') renderStartGuide(); // 시작 가이드 (js/guide.js)
 
     if (currentUser !== null) {
         renderMyPage();
