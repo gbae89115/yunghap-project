@@ -1250,6 +1250,7 @@ function logout() {
     isWorkoutLoaded = false;
     isWorkoutCustom = false;
 
+    syncWorkoutAlarms(); // 로그아웃하면 다른 사람에게 알림이 가지 않도록 예약된 알림을 모두 지운다
     renderCalendarEvents();
     renderStreak();
     renderTodayChecklist();
@@ -1545,6 +1546,71 @@ function refreshAllViews() {
     if (currentUser !== null) {
         renderMyPage();
         renderDietSection();
+    }
+
+    syncWorkoutAlarms();
+}
+
+/* ==========================================
+   운동 알림: 앱이 꺼져 있어도 정한 시간에 휴대폰 알림이 온다
+   - 안드로이드 앱(MainActivity)의 RoutineNoteApp.setWorkoutAlarms 로 "앞으로 울릴 알림 목록"을 통째로 넘긴다
+   - 넘길 때마다 안드로이드가 예전 알림을 지우고 새로 예약하므로, 추가/삭제/로그아웃도 자동으로 반영된다
+   ========================================== */
+const alarmMaxDays = 30;   // 앞으로 30일 안의 알림만 예약한다
+const alarmMaxCount = 100; // 한 번에 최대 100개까지만 예약한다
+
+function getAlarmTimestamp(dateKey, alarmTime) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const [hour, minute] = alarmTime.split(':').map(Number);
+    return new Date(year, month - 1, day, hour, minute).getTime();
+}
+
+// '오후 6:30' 처럼 한국어로 보여 준다 (alarmTime 은 '18:30' 형태로 저장)
+function formatAlarmTimeKorean(alarmTime) {
+    const [hour, minute] = alarmTime.split(':').map(Number);
+    const period = hour < 12 ? '오전' : '오후';
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${period} ${hour12}:${String(minute).padStart(2, '0')}`;
+}
+
+// 운동일지에 적은 운동 중, 알림 시간이 있고 아직 안 지난 것만 모은다
+function buildWorkoutAlarms() {
+    if (currentUser === null) return [];
+
+    const now = Date.now();
+    const limit = now + alarmMaxDays * 24 * 60 * 60 * 1000;
+    const displayName = getDisplayName();
+    const alarms = [];
+
+    Object.keys(exerciseLogs).forEach(dateKey => {
+        (exerciseLogs[dateKey] || []).forEach(entry => {
+            if (!/^\d{2}:\d{2}$/.test(entry.alarmTime || '')) return;
+
+            const at = getAlarmTimestamp(dateKey, entry.alarmTime);
+            if (at <= now || at > limit) return;
+
+            alarms.push({
+                id: `${dateKey}-log${entry.id}`,
+                at: at,
+                title: '운동 시간이에요! 💪',
+                text: `${displayName} 님, ${entry.exerciseName} 할 시간입니다!`
+            });
+        });
+    });
+
+    return alarms.sort((a, b) => a.at - b.at).slice(0, alarmMaxCount);
+}
+
+function syncWorkoutAlarms() {
+    // 브라우저(앱이 아닌 곳)에서는 알림 기능이 없으므로 조용히 넘어간다
+    if (typeof RoutineNoteApp === 'undefined' || typeof RoutineNoteApp.setWorkoutAlarms !== 'function') return;
+    // 운동 기록을 다 불러오기 전에는 빈 목록으로 기존 알림을 지우지 않는다
+    if (currentUser !== null && !isWorkoutLoaded) return;
+
+    try {
+        RoutineNoteApp.setWorkoutAlarms(JSON.stringify(buildWorkoutAlarms()));
+    } catch (error) {
+        console.error('운동 알림 예약 실패:', error);
     }
 }
 
@@ -2362,6 +2428,19 @@ function createExerciseLogRow(entry, dateStr) {
     nameElement.textContent = entry.exerciseName;
     nameElement.setAttribute('title', entry.exerciseName);
 
+    // 알림 시간이 있으면 운동명 아래에 작게 보여 준다
+    let nameCell = nameElement;
+    if (entry.alarmTime) {
+        const alarmElement = document.createElement('span');
+        alarmElement.className = 'block text-[9px] font-bold text-brand-600 dark:text-brand-300';
+        alarmElement.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
+        alarmElement.append(formatAlarmTimeKorean(entry.alarmTime));
+
+        nameCell = document.createElement('div');
+        nameCell.className = 'min-w-0';
+        nameCell.append(nameElement, alarmElement);
+    }
+
     const setElement = document.createElement('span');
     setElement.className = 'text-center';
     setElement.textContent = `${entry.setCount}세트`;
@@ -2381,7 +2460,7 @@ function createExerciseLogRow(entry, dateStr) {
     deleteButton.appendChild(createIcon('fa-solid fa-xmark text-xs'));
     deleteButton.addEventListener('click', () => deleteExerciseLog(dateStr, entry.id));
 
-    rowElement.append(nameElement, setElement, weightElement, repsElement, deleteButton);
+    rowElement.append(nameCell, setElement, weightElement, repsElement, deleteButton);
     return rowElement;
 }
 
@@ -2402,6 +2481,14 @@ function renderExerciseLogList() {
     document.getElementById('exerciseLogSummary').textContent = entries.length > 0
         ? `총 ${entries.length}종목, 볼륨 ${Math.round(totalVolume).toLocaleString()} kg`
         : '';
+}
+
+// 알림 시간 칸(시계로 고르는 칸)에서 'HH:MM' 을 읽는다. 비어 있으면 알림 없음('')
+function readLogAlarmTime() {
+    const timeText = document.getElementById('logAlarmTime').value;
+    if (timeText === '') return { time: '', error: '' };
+    if (!/^\d{2}:\d{2}$/.test(timeText)) return { time: '', error: '알림 시간을 다시 골라 주세요.' };
+    return { time: timeText, error: '' };
 }
 
 async function addExerciseLog(event) {
@@ -2429,6 +2516,12 @@ async function addExerciseLog(event) {
         return;
     }
 
+    const alarm = readLogAlarmTime();
+    if (alarm.error) {
+        showToast(alarm.error);
+        return;
+    }
+
     if (!exerciseLogs[currentActiveDate]) {
         exerciseLogs[currentActiveDate] = [];
     }
@@ -2437,20 +2530,39 @@ async function addExerciseLog(event) {
         exerciseName: exerciseName,
         setCount: setCount,
         weight: weight,
-        reps: reps
+        reps: reps,
+        alarmTime: alarm.time
     });
 
-    ['logExerciseName', 'logSets', 'logWeight', 'logReps'].forEach(inputId => {
+    ['logExerciseName', 'logSets', 'logWeight', 'logReps', 'logAlarmTime'].forEach(inputId => {
         document.getElementById(inputId).value = '';
     });
     renderExerciseLogList();
+    syncWorkoutAlarms();
     await saveStoredValue('exerciseLogs', exerciseLogs);
-    showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+
+    if (alarm.time === '') {
+        showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+    } else if (getAlarmTimestamp(currentActiveDate, alarm.time) <= Date.now()) {
+        showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
+    } else {
+        showToast(`추가했어요. ${formatAlarmTimeKorean(alarm.time)}에 알림이 와요!`);
+    }
+
+    // 알림이 꺼져 있으면(권한을 안 줬거나 꺼 둔 경우) 한국어 안내 창으로 다시 물어본다
+    if (alarm.time !== ''
+        && typeof RoutineNoteApp !== 'undefined'
+        && typeof RoutineNoteApp.isNotificationAllowed === 'function'
+        && !RoutineNoteApp.isNotificationAllowed()) {
+        showToast('알림이 꺼져 있어요. 안내 창에서 알림을 켜 주세요.');
+        RoutineNoteApp.askNotificationPermission();
+    }
 }
 
 async function deleteExerciseLog(dateStr, logId) {
     exerciseLogs[dateStr] = (exerciseLogs[dateStr] || []).filter(entry => entry.id !== logId);
     renderExerciseLogList();
+    syncWorkoutAlarms(); // 지운 운동의 알림도 함께 취소한다
     await saveStoredValue('exerciseLogs', exerciseLogs);
     showToast('운동 기록을 삭제했어요.');
 }

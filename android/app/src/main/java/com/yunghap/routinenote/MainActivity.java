@@ -22,7 +22,9 @@ import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.graphics.Insets;
+import androidx.core.os.LocaleListCompat;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -57,6 +59,9 @@ public class MainActivity extends AppCompatActivity {
         new Handler(Looper.getMainLooper()).postDelayed(() -> isWebReady = true, 3000);
 
         super.onCreate(savedInstanceState);
+
+        // 앱 언어를 한국어로 고정: 폰이 영어여도 날짜·시간 선택 창 등이 한국어로 나온다
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ko"));
 
         // 1. 화면 구성: 브랜드색 바탕 위에 웹뷰를 올린다
         //    - 위쪽 상태바 영역: 헤더와 같은 파란색(brand-600) + 흰 아이콘
@@ -142,13 +147,32 @@ public class MainActivity extends AppCompatActivity {
             public void setDarkMode(boolean isDark) {
                 runOnUiThread(() -> applyBarTheme(isDark));
             }
+
+            // 웹(app.js)이 "앞으로 울릴 운동 알림 목록"(JSON)을 넘기면 안드로이드 알람으로 예약한다
+            // 앱이 꺼져 있어도 정한 시간에 알림이 뜬다 (WorkoutAlarmScheduler)
+            @JavascriptInterface
+            public void setWorkoutAlarms(String alarmsJson) {
+                WorkoutAlarmScheduler.setAlarms(getApplicationContext(), alarmsJson);
+            }
+
+            // 지금 알림을 받을 수 있는 상태인지 (알림 시간을 정할 때 웹이 확인한다)
+            @JavascriptInterface
+            public boolean isNotificationAllowed() {
+                return NotificationHelper.isAllowed(MainActivity.this);
+            }
+
+            // 알림이 꺼져 있을 때 한국어 안내 창으로 다시 물어본다
+            @JavascriptInterface
+            public void askNotificationPermission() {
+                runOnUiThread(() -> NotificationHelper.askAgain(MainActivity.this));
+            }
         }, "RoutineNoteApp");
 
-        // 4. 휴대폰 위치 권한 요청 (처음 실행할 때 팝업이 뜬다)
-        requestPermissions(new String[]{
+        // 4. 휴대폰 권한 요청 (처음 실행할 때): 위치 + 알림(안드로이드 13 이상)
+        NotificationHelper.requestAtStartup(this, new String[]{
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
-        }, 1);
+        });
 
         // 5. 루틴노트 화면 열기
         webView.loadUrl(START_URL);
