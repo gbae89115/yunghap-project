@@ -104,6 +104,79 @@ app.post('/api/workout/gps', async (req, res) => {
   }
 });
 
+// ==========================================
+// 4. 카카오 로그인 (REST API 방식)
+//    키·시크릿은 Render 환경변수에만 둔다
+// ==========================================
+const APP_URL = 'https://appassets.androidplatform.net/assets/index.html';
+
+// 앱 주소로 돌아가기: 서버 리다이렉트 대신 페이지에서 이동해야 앱이 가로챌 수 있다
+function backToApp(res, hash) {
+  const target = `${APP_URL}#${hash}`;
+  res.send(`<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;text-align:center;padding-top:40vh">로그인 처리 중...
+<script>location.replace(${JSON.stringify(target)});</script></body></html>`);
+}
+
+// 4-1. 앱이 이 주소로 오면 카카오 로그인 페이지로 보낸다
+app.get('/api/auth/kakao/login', (req, res) => {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: process.env.KAKAO_REST_API_KEY,
+    redirect_uri: process.env.KAKAO_REDIRECT_URI,
+  });
+  res.redirect(`https://kauth.kakao.com/oauth/authorize?${params}`);
+});
+
+// 4-2. 카카오가 인가 코드를 들고 돌아오는 곳
+app.get('/api/auth/kakao/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error || !code) {
+    return backToApp(res, `kakaoError=${encodeURIComponent(error || 'no_code')}`);
+  }
+
+  try {
+    // (1) 인가 코드로 토큰 받기
+    const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: process.env.KAKAO_REST_API_KEY,
+        client_secret: process.env.KAKAO_CLIENT_SECRET,
+        redirect_uri: process.env.KAKAO_REDIRECT_URI,
+        code,
+      }),
+    });
+    const token = await tokenRes.json();
+    if (!token.access_token) throw new Error(token.error_description || 'token_failed');
+
+    // (2) 토큰으로 사용자 정보 조회
+    const meRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    });
+    const me = await meRes.json();
+    if (!me.id) throw new Error('user_info_failed');
+
+    const userId = `kakao_${me.id}`;
+    const nickname = (me.kakao_account && me.kakao_account.profile && me.kakao_account.profile.nickname) || '';
+
+    // (3) USER 테이블에 회원 저장 (이미 있으면 그대로)
+    await pool.query(
+      "INSERT IGNORE INTO `USER` (user_id, password, provider) VALUES (?, NULL, 'KAKAO')",
+      [userId]
+    );
+
+    // (4) 앱으로 돌려보내기
+    const payload = encodeURIComponent(JSON.stringify({ userId, nickname }));
+    backToApp(res, `kakaoLogin=${payload}`);
+  } catch (e) {
+    console.error('Kakao login error:', e.message);
+    backToApp(res, 'kakaoError=login_failed');
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

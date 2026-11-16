@@ -34,20 +34,65 @@ async function updateRoutineCheck(selectionId, isChecked) {
     }
 }
 
-// 3. GPS 런닝 종료 시 기록 저장
+// 3. GPS 런닝 종료 시 기록 저장 (성공하면 true, 실패하면 false)
 async function saveGpsRecord(selectionId, distance, calories, routePath) {
     try {
-    const response = await fetch(`${API_BASE_URL}/workout/gps`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectionId, distance, calories, routePath })
-    });
-    const data = await response.json();
-    if (data.success) {
-        alert('GPS 런닝 기록이 MySQL DB에 저장되었습니다!');
-    }
+        const response = await fetch(`${API_BASE_URL}/workout/gps`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ selectionId, distance, calories, routePath })
+        });
+        const data = await response.json();
+        if (data.success) console.log('GPS 기록 서버 저장 완료, gpsId =', data.gpsId);
+        return data.success === true;
     } catch (error) {
-    console.error('GPS 저장 실패:', error);
+        console.error('GPS 저장 실패:', error);
+        return false;
+    }
+}
+
+// ==========================================
+// 카카오 로그인
+// ==========================================
+
+// 카카오 로그인 버튼을 누르면 실행
+function startKakaoLogin() {
+    window.location.href = `${API_BASE_URL}/auth/kakao/login`;
+}
+
+// 카카오 로그인 후 앱으로 돌아왔을 때 처리 (처리했으면 true)
+async function handleKakaoLoginReturn() {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#kakao')) return false;
+
+    // 주소창에서 로그인 정보 지우기
+    history.replaceState(null, '', window.location.pathname);
+
+    const params = new URLSearchParams(hash.slice(1));
+    if (params.has('kakaoError')) {
+        showToast('카카오 로그인에 실패했어요. 다시 시도해 주세요.');
+        return false;
+    }
+
+    try {
+        const data = JSON.parse(params.get('kakaoLogin'));
+        if (!data || !data.userId) return false;
+
+        // 기기 계정 목록에 없으면 추가 (앱을 다시 켜도 로그인 유지)
+        let account = findAccount(data.userId);
+        if (!account) {
+            account = { userId: data.userId, provider: 'KAKAO', createdAt: new Date().toISOString() };
+            const accounts = getAccounts();
+            accounts.push(account);
+            writeStorage('accounts', accounts);
+        }
+
+        await beginSession(account, true);
+        showToast(data.nickname ? `${data.nickname}님, 환영해요!` : '카카오 로그인 완료!');
+        return true;
+    } catch (e) {
+        console.error('카카오 로그인 처리 실패:', e);
+        return false;
     }
 }
 

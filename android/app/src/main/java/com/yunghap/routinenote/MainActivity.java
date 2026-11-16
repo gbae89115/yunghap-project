@@ -115,6 +115,11 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                // 앱 화면으로 돌아오면 지나온 바깥 페이지(카카오 로그인 등) 기록을 지운다
+                // → 뒤로 버튼을 눌러도 카카오 로그인 페이지로 되돌아가지 않는다
+                if (url != null && url.startsWith(START_URL)) {
+                    view.clearHistory();
+                }
                 // 페이지를 다 읽은 뒤 화면이 그려질 시간을 조금 주고 시작 화면을 닫는다
                 view.postDelayed(() -> isWebReady = true, 200);
             }

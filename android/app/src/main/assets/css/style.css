@@ -112,6 +112,12 @@ body {
 .fc .fc-button-primary:disabled { background: transparent; opacity: 0.35; }
 .fc .fc-button-primary:focus-visible { outline: 3px solid #3b82f6; outline-offset: 1px; box-shadow: none; }
 
+/* 다크 모드: 요일 줄 배경과 칸 테두리 색 */
+.dark .fc {
+    --fc-page-bg-color: #1e293b;
+    --fc-border-color: #334155;
+}
+
 .fc .fc-col-header-cell-cushion {
     padding: 6px 0;
     font-size: 12px;
@@ -202,6 +208,178 @@ body {
 
 .clock-finished { color: #dc2626 !important; }
 
+/* ==========================================
+   타이머 / 스톱워치 전체 화면
+   ========================================== */
+.clock-screen-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px 16px;
+    background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 55%);
+    color: #0f172a;
+}
+.dark .clock-screen-inner {
+    background: radial-gradient(120% 80% at 85% 65%, #172554 0%, #0b1120 55%, #020617 100%);
+    color: #f8fafc;
+}
+.clock-topbar { display: flex; align-items: center; justify-content: space-between; height: 48px; flex-shrink: 0; }
+.clock-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: inherit;
+}
+button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
+.clock-title { font-size: 16px; font-weight: 800; }
+
+/* 진행 화면 (원 + 숫자 + 구간 기록) */
+.clock-dial-area { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.clock-dial-area[hidden] { display: none; }
+.clock-dial-area.has-laps { justify-content: flex-start; padding-top: 8px; }
+.clock-dial { position: relative; width: min(300px, 80vw); aspect-ratio: 1; flex-shrink: 0; container-type: inline-size; transition: width 0.25s ease; }
+.clock-dial-area.has-laps .clock-dial { width: min(220px, 58vw); }
+.clock-dial-svg { display: block; width: 100%; height: 100%; }
+.clock-tick { stroke: #cbd5e1; stroke-width: 2; stroke-linecap: round; }
+.clock-tick--major { stroke: #94a3b8; stroke-width: 3; }
+.clock-dial-face { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1; }
+.clock-dial-track { fill: none; stroke: #e2e8f0; stroke-width: 8; }
+.clock-dial-progress { fill: none; stroke: #2563eb; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.1s linear; }
+.clock-dial-hand line { stroke: #2563eb; stroke-width: 3; stroke-linecap: round; }
+.clock-dial-hand circle { fill: #2563eb; }
+.dark .clock-tick { stroke: #334155; }
+.dark .clock-tick--major { stroke: #94a3b8; }
+.dark .clock-dial-face { fill: #1e293b; stroke: #334155; }
+.dark .clock-dial-track { stroke: #1e293b; }
+.dark .clock-dial-progress { stroke: #60a5fa; }
+.dark .clock-dial-hand line { stroke: #60a5fa; }
+.dark .clock-dial-hand circle { fill: #60a5fa; }
+.clock-dial-area[data-mode="stopwatch"] #clockTrack,
+.clock-dial-area[data-mode="stopwatch"] #clockProgress,
+.clock-dial-area[data-mode="timer"] #clockTicks,
+.clock-dial-area[data-mode="timer"] #clockHand { display: none; }
+.clock-digits {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15cqw;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    pointer-events: none;
+}
+.clock-digits.is-long { font-size: 12cqw; }
+
+.clock-laps { width: 100%; flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0 8px; list-style: none; }
+.clock-laps:empty { display: none; }
+.clock-lap {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 12px 4px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+.clock-lap-name { color: #64748b; }
+.clock-lap-split { text-align: center; color: #64748b; }
+.clock-lap-total { text-align: right; font-weight: 700; }
+.dark .clock-lap { border-bottom-color: #1e293b; }
+.dark .clock-lap-name,
+.dark .clock-lap-split { color: #94a3b8; }
+
+/* 타이머 시간 설정 (위아래 스크롤 휠) */
+.clock-setup { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+.clock-setup[hidden] { display: none; }
+.time-picker { display: flex; justify-content: center; align-items: flex-end; gap: 2px; }
+.time-picker-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.time-picker-label { font-size: 14px; font-weight: 600; color: #64748b; }
+.time-picker-scroll {
+    height: 228px;
+    width: 88px;
+    padding: 76px 0;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+    outline: none;
+}
+.time-picker-scroll::-webkit-scrollbar { display: none; }
+.time-picker-scroll:focus-visible { box-shadow: inset 0 0 0 2px #2563eb; border-radius: 16px; }
+.time-picker-item {
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 56px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #cbd5e1;
+    cursor: pointer;
+    user-select: none;
+}
+.time-picker-item.is-selected { color: #0f172a; }
+.time-picker-colon { height: 228px; display: flex; align-items: center; font-size: 44px; font-weight: 800; padding-bottom: 6px; }
+.dark .time-picker-label { color: #94a3b8; }
+.dark .time-picker-item { color: #334155; }
+.dark .time-picker-item.is-selected { color: #f8fafc; }
+
+.clock-presets { display: flex; gap: 10px; overflow-x: auto; padding: 2px 4px; scrollbar-width: none; }
+.clock-presets::-webkit-scrollbar { display: none; }
+.clock-preset {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+    border-radius: 9999px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #334155;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.clock-preset[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+.clock-preset:disabled { opacity: 0.5; cursor: not-allowed; }
+.dark .clock-preset { border-color: #334155; background: #1e293b; color: #e2e8f0; }
+.dark .clock-preset[aria-pressed="true"] { border-color: #60a5fa; background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+
+/* 메시지, 큰 동그란 버튼, 아래쪽 모드 전환 */
+.clock-message { min-height: 20px; margin: 4px 0; text-align: center; font-size: 13px; color: #64748b; flex-shrink: 0; }
+.dark .clock-message { color: #94a3b8; }
+.clock-actions { display: flex; justify-content: space-between; align-items: center; padding: 0 16px; height: 116px; flex-shrink: 0; }
+.clock-actions.is-single { justify-content: center; }
+.clock-round-btn {
+    width: 104px;
+    height: 104px;
+    border-radius: 9999px;
+    font-size: 18px;
+    font-weight: 800;
+    transition: transform 0.1s ease, opacity 0.2s ease;
+}
+.clock-round-btn:active:not(:disabled) { transform: scale(0.96); }
+.clock-round-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.clock-round-btn[hidden] { display: none; }
+.clock-round-btn--primary { background: #2563eb; color: #ffffff; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3); }
+.clock-round-btn--secondary { background: #e2e8f0; color: #334155; }
+.dark .clock-round-btn--primary { background: rgba(59, 130, 246, 0.28); color: #bfdbfe; box-shadow: none; }
+.dark .clock-round-btn--secondary { background: #1e293b; color: #e2e8f0; }
+
+.clock-mode-bar { display: flex; gap: 4px; margin: 12px auto 0; padding: 6px; border-radius: 9999px; background: #e2e8f0; flex-shrink: 0; }
+.dark .clock-mode-bar { background: #0f172a; box-shadow: inset 0 0 0 1px #1e293b; }
+.clock-mode-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 9999px; font-size: 14px; font-weight: 700; color: #64748b; }
+.clock-mode-btn[aria-pressed="true"] { background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+.dark .clock-mode-btn { color: #94a3b8; }
+.dark .clock-mode-btn[aria-pressed="true"] { background: #334155; color: #f8fafc; box-shadow: none; }
+
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
 }
@@ -225,7 +403,7 @@ body {
     font-variant-numeric: tabular-nums;
 }
 .metric-unit {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     color: #94a3b8;
 }
@@ -249,7 +427,7 @@ body {
     transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 .type-chip i { font-size: 18px; }
-.type-chip small { font-size: 10px; font-weight: 500; color: #94a3b8; }
+.type-chip small { font-size: 11px; font-weight: 500; color: #94a3b8; }
 .type-chip[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
 .type-chip[aria-pressed="true"] small { color: #60a5fa; }
 .dark .type-chip { border-color: #475569; background: #1e293b; color: #cbd5e1; }
@@ -385,10 +563,10 @@ body {
     color: #1e293b;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
 }
-.onboarding-result[data-bmi-level="under"] { --bmi-color: #0ea5e9; }
+.onboarding-result[data-bmi-level="under"] { --bmi-color: #3b82f6; }
 .onboarding-result[data-bmi-level="normal"] { --bmi-color: #10b981; }
 .onboarding-result[data-bmi-level="over"] { --bmi-color: #f59e0b; }
-.onboarding-result[data-bmi-level="obese"] { --bmi-color: #f43f5e; }
+.onboarding-result[data-bmi-level="obese"] { --bmi-color: #ef4444; }
 
 .onboarding-bmi-value {
     margin-top: 2px;
@@ -420,10 +598,10 @@ body {
     border-radius: 9999px;
     opacity: 0.35;
 }
-.onboarding-bmi-segment.level-under { background: #0ea5e9; }
+.onboarding-bmi-segment.level-under { background: #3b82f6; }
 .onboarding-bmi-segment.level-normal { background: #10b981; }
 .onboarding-bmi-segment.level-over { background: #f59e0b; }
-.onboarding-bmi-segment.level-obese { background: #f43f5e; }
+.onboarding-bmi-segment.level-obese { background: #ef4444; }
 .onboarding-result[data-bmi-level="under"] .level-under,
 .onboarding-result[data-bmi-level="normal"] .level-normal,
 .onboarding-result[data-bmi-level="over"] .level-over,
@@ -450,7 +628,7 @@ body {
 .onboarding-bmi-labels span {
     text-align: center;
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 800;
     color: #94a3b8;
 }
@@ -472,3 +650,52 @@ body {
     font-weight: 700;
     color: #cbd5e1;
 }
+
+/* ==========================================
+   시작 가이드 (오늘 루틴 탭, js/guide.js)
+   ========================================== */
+.start-guide {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1.5px dashed #93c5fd;
+    background: #eff6ff;
+}
+.start-guide[hidden] { display: none; }
+.dark .start-guide { border-color: #1e40af; background: rgba(30, 58, 138, 0.25); }
+.guide-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    text-align: left;
+}
+.dark .guide-step { border-color: #334155; background: #1e293b; }
+.guide-step-check {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    border: 2px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: transparent;
+}
+.dark .guide-step-check { border-color: #475569; }
+.guide-step-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.guide-step-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.guide-step-desc { font-size: 12px; color: #64748b; }
+.dark .guide-step-title { color: #f1f5f9; }
+.dark .guide-step-desc { color: #94a3b8; }
+.guide-step-arrow { font-size: 12px; color: #94a3b8; }
+.guide-step.is-done .guide-step-check { border-color: #10b981; background: #10b981; color: #ffffff; }
+.guide-step.is-done .guide-step-title { color: #94a3b8; text-decoration: line-through; }
+.guide-step.is-done .guide-step-arrow { visibility: hidden; }
