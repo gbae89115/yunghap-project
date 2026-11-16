@@ -128,8 +128,35 @@
                     </div>
                 </div>
 
+                <!-- 시작 가이드: 새 사용자에게 처음 해 볼 일 3가지를 안내 (js/guide.js) -->
+                <div id="startGuide" class="start-guide" hidden>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-flag-checkered text-brand-500" aria-hidden="true"></i> 시작 가이드
+                            <span id="startGuideCount" class="text-xs font-bold text-brand-600 dark:text-brand-400">0 / 3</span>
+                        </h3>
+                        <button type="button" id="startGuideClose" class="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-1">닫기</button>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">처음이라면 아래 세 가지부터 해 보세요.</p>
+                    <button type="button" class="guide-step" data-guide-step="routine">
+                        <span class="guide-step-check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                        <span class="guide-step-text"><span class="guide-step-title">오늘 할 운동 고르기</span><span class="guide-step-desc">런닝 · 웨이트 · 휴식 중에서 선택</span></span>
+                        <i class="fa-solid fa-chevron-right guide-step-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="guide-step" data-guide-step="complete">
+                        <span class="guide-step-check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                        <span class="guide-step-text"><span class="guide-step-title">운동 하나 완료 체크하기</span><span class="guide-step-desc">체크리스트에서 끝낸 운동을 눌러요</span></span>
+                        <i class="fa-solid fa-chevron-right guide-step-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="guide-step" data-guide-step="period">
+                        <span class="guide-step-check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                        <span class="guide-step-text"><span class="guide-step-title">다이어트 기간 정하기</span><span class="guide-step-desc">시작일과 종료일을 정하고 체중을 기록해요</span></span>
+                        <i class="fa-solid fa-chevron-right guide-step-arrow" aria-hidden="true"></i>
+                    </button>
+                </div>
+
                 <!-- 오늘의 운동 선택 (와이어프레임 12~15번) -->
-                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                <div id="routineSelectCard" class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
                     <div class="flex justify-between items-center">
                         <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
                             <i class="fa-solid fa-hand-pointer text-brand-500" aria-hidden="true"></i> 오늘의 운동 선택
@@ -151,7 +178,7 @@
                 </div>
 
                 <!-- Today Workout Checklist Card -->
-                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                <div id="todayChecklistCard" class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-3">
                     <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
                         <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
                             <i class="fa-solid fa-list-check text-brand-500"></i> 오늘 루틴 체크리스트
@@ -269,6 +296,7 @@
                 <!-- 와이어프레임 21번: FullCalendar 월간 달력 -->
                 <div id="calendarCard" aria-busy="true" class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 transition-opacity">
                     <div id="fullCalendar"></div>
+                    <p class="text-xs text-center text-slate-400 mt-2"><i class="fa-regular fa-hand-pointer" aria-hidden="true"></i> 날짜를 누르면 그날의 운동을 기록하고 확인할 수 있어요.</p>
 
                     <div class="flex items-center justify-center space-x-4 pt-3 mt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400 font-medium">
                         <div class="flex items-center space-x-1.5">
@@ -1022,11 +1050,12 @@
 
     </div>
 
-    <!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js → onboarding.js (모두 같은 전역 공간을 공유) -->
+    <!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js → onboarding.js → guide.js (모두 같은 전역 공간을 공유) -->
     <script src="js/app.js"></script>
     <script src="js/kakao-map.js"></script>
     <script src="js/api.js"></script>
     <script src="js/onboarding.js"></script>
+    <script src="js/guide.js"></script>
 <script>
     // PWA: 서비스워커 등록 (https 또는 localhost에서만 동작)
     if ('serviceWorker' in navigator) {
