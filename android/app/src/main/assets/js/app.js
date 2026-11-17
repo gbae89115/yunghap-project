@@ -362,7 +362,7 @@ function renderTodayChecklist() {
         toggleButton.append(createCheckBox(item.completed, ''), nameElement);
 
         const badgeElement = document.createElement('span');
-        badgeElement.className = `text-[10px] font-bold px-2 py-0.5 rounded ${item.completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`;
+        badgeElement.className = `text-[11px] font-bold px-2 py-0.5 rounded ${item.completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`;
         badgeElement.textContent = item.completed ? '완료' : '진행중';
 
         rowElement.append(toggleButton, badgeElement);
@@ -1747,7 +1747,7 @@ function setGender(gender) {
     const femaleBtn = document.getElementById('genderFemale');
 
     if (gender === 'male') {
-        maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-blue-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300";
+        maleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300";
         femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300";
     } else {
         femaleBtn.className = "py-2 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition border-brand-500 bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300";
@@ -2243,7 +2243,7 @@ function renderDietSection() {
 
     // 현재 BMI 글자색: 저체중 파랑 / 정상 초록 / 과체중 주황 / 비만 빨강
     const bmiColorClasses = {
-        '저체중': ['text-blue-600', 'dark:text-blue-400'],
+        '저체중': ['text-brand-600', 'dark:text-brand-400'],
         '정상': ['text-emerald-600', 'dark:text-emerald-400'],
         '과체중': ['text-amber-600', 'dark:text-amber-400'],
         '비만': ['text-rose-600', 'dark:text-rose-400']
@@ -2421,7 +2421,7 @@ function setDetailPanel(panelName) {
 
 function createExerciseLogRow(entry, dateStr) {
     const rowElement = document.createElement('div');
-    rowElement.className = 'grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 items-center px-1 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-[11px] font-bold text-slate-800 dark:text-slate-100';
+    rowElement.className = 'grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 items-center px-1 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-100';
 
     const nameElement = document.createElement('span');
     nameElement.className = 'truncate min-w-0';
@@ -2723,18 +2723,20 @@ function renderMyPage() {
     };
     const metrics = computeBodyMetrics(bodyProfile);
     const stats = calculateWorkoutStats();
-    const isKakao = currentUser.provider === 'kakao';
+    // 서버는 'KAKAO', 앱은 'kakao' 로 저장하므로 대소문자를 가리지 않고 비교한다
+    const isKakao = String(currentUser.provider || '').toLowerCase() === 'kakao';
 
     // 프로필
     const displayName = getDisplayName();
     setText('myAvatar', displayName.charAt(0).toUpperCase());
     setText('myUserId', displayName);
     document.getElementById('myUserId').title = `아이디: ${currentUser.userId}`;
-    setText('myJoinDate', currentUser.createdAt ? formatKoreanDate(currentUser.createdAt) : '-');
+    // 카카오 계정은 가입일이 '2026-11-17T05:12:00.000Z' 형태라서 날짜 부분(앞 10글자)만 쓴다
+    setText('myJoinDate', currentUser.createdAt ? formatKoreanDate(String(currentUser.createdAt).slice(0, 10)) : '-');
 
     const providerBadge = document.getElementById('myProviderBadge');
     providerBadge.textContent = isKakao ? '카카오 로그인' : '일반 계정';
-    providerBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-full ${isKakao
+    providerBadge.className = `text-[11px] font-bold px-2 py-0.5 rounded-full ${isKakao
         ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200'
         : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`;
 
