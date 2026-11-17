@@ -98,6 +98,13 @@
         </div>
     </header>
 
+    <!-- 연결 상태 안내: 인터넷이 끊기거나 서버 응답이 늦을 때만 보인다 (js/net-status.js) -->
+    <div id="netBanner" class="net-banner" role="status" aria-live="polite" hidden>
+        <i class="net-banner-icon fa-solid" aria-hidden="true"></i>
+        <span id="netBannerText" class="net-banner-text"></span>
+        <button type="button" id="netBannerRetry" class="net-banner-retry" hidden>다시 확인</button>
+    </div>
+
     <!-- Main Screen Body -->
     <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20 bg-slate-100 dark:bg-slate-900/90" id="mainScrollBody">
 
@@ -1056,12 +1063,13 @@
 
 </div>
 
-<!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js → onboarding.js → guide.js (모두 같은 전역 공간을 공유) -->
+<!-- 스크립트 순서 중요: app.js → kakao-map.js → api.js → onboarding.js → guide.js → net-status.js (모두 같은 전역 공간을 공유) -->
 <script src="js/app.js"></script>
 <script src="js/kakao-map.js"></script>
 <script src="js/api.js"></script>
 <script src="js/onboarding.js"></script>
 <script src="js/guide.js"></script>
+<script src="js/net-status.js"></script>
 <script>
     // PWA: 서비스워커 등록 (https 또는 localhost에서만 동작)
     if ('serviceWorker' in navigator) {
