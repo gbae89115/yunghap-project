@@ -699,3 +699,50 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
 .guide-step.is-done .guide-step-check { border-color: #10b981; background: #10b981; color: #ffffff; }
 .guide-step.is-done .guide-step-title { color: #94a3b8; text-decoration: line-through; }
 .guide-step.is-done .guide-step-arrow { visibility: hidden; }
+
+/* ==========================================
+   연결 상태 안내 띠 (헤더 바로 아래, js/net-status.js)
+   ========================================== */
+.net-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    z-index: 10;
+}
+.net-banner[hidden] { display: none; }
+.net-banner-text { flex: 1; min-width: 0; }
+.net-banner-icon { font-size: 13px; flex-shrink: 0; }
+.net-banner-retry {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    color: inherit;
+}
+.net-banner-retry[hidden] { display: none; }
+/* 인터넷 없음: 주황 */
+.net-banner[data-state="offline"] { background: #fef3c7; color: #92400e; }
+.net-banner[data-state="offline"] .net-banner-icon::before { content: "\f1eb"; } /* wifi */
+/* 서버 연결 중: 파랑 + 도는 아이콘 */
+.net-banner[data-state="waking"] { background: #dbeafe; color: #1e40af; }
+.net-banner[data-state="waking"] .net-banner-icon { animation: net-spin 1s linear infinite; }
+.net-banner[data-state="waking"] .net-banner-icon::before { content: "\f110"; } /* spinner */
+/* 서버 연결 실패: 빨강 */
+.net-banner[data-state="failed"] { background: #fee2e2; color: #991b1b; }
+.net-banner[data-state="failed"] .net-banner-icon::before { content: "\f071"; } /* 경고 */
+/* 연결됨: 초록 */
+.net-banner[data-state="ok"] { background: #d1fae5; color: #065f46; }
+.net-banner[data-state="ok"] .net-banner-icon::before { content: "\f058"; } /* 체크 */
+@keyframes net-spin { to { transform: rotate(360deg); } }
+.dark .net-banner[data-state="offline"] { background: #78350f; color: #fef3c7; }
+.dark .net-banner[data-state="waking"] { background: #1e3a8a; color: #dbeafe; }
+.dark .net-banner[data-state="failed"] { background: #7f1d1d; color: #fee2e2; }
+.dark .net-banner[data-state="ok"] { background: #064e3b; color: #d1fae5; }
+.dark .net-banner-retry { background: rgba(255, 255, 255, 0.15); }
+
