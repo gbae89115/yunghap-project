@@ -100,6 +100,7 @@ let dietGoal = null;
 let exerciseLogs = {};
 let gpsLogs = [];
 let nextExerciseLogId = 1;
+let isAlarmEnabled = true; // 마이페이지의 '운동 알림' 스위치: 끄면 예약된 알림을 모두 취소한다
 let isWorkoutCustom = false;
 let activeDetailPanel = 'routine';
 let selectedGoalKey = 'lose';
@@ -1245,6 +1246,7 @@ function logout() {
 
     currentUser = null;
     profileName = '';
+    isAlarmEnabled = true;
     workoutState = {};
     workoutLogs = [];
     isWorkoutLoaded = false;
@@ -1260,16 +1262,18 @@ function logout() {
 
 // 로그인한 사용자의 저장 데이터를 한 번에 불러온다 (없으면 빈 데이터, 시연용 계정만 예시 데이터)
 async function loadUserData() {
-    const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps] = await Promise.all([
+    const [storedName, storedProfile, storedRecords, storedGoal, storedLogs, storedGps, storedAlarmEnabled] = await Promise.all([
         requestStoredValue('profileName', ''),
         requestStoredValue('bodyProfile', null),
         requestStoredValue('bodyRecords', null),
         requestStoredValue('dietGoal', null),
         requestStoredValue('exerciseLogs', null),
-        requestStoredValue('gpsLogs', null)
+        requestStoredValue('gpsLogs', null),
+        requestStoredValue('alarmEnabled', true)
     ]);
 
     profileName = typeof storedName === 'string' ? storedName.trim() : '';
+    isAlarmEnabled = storedAlarmEnabled !== false; // 저장된 값이 없으면 켜진 상태
 
     bodyProfile = isValidBodyProfile(storedProfile)
         ? storedProfile
@@ -1546,6 +1550,7 @@ function refreshAllViews() {
     if (currentUser !== null) {
         renderMyPage();
         renderDietSection();
+        renderAlarmSwitch();
     }
 
     syncWorkoutAlarms();
@@ -1573,9 +1578,26 @@ function formatAlarmTimeKorean(alarmTime) {
     return `${period} ${hour12}:${String(minute).padStart(2, '0')}`;
 }
 
+// 저장된 반복 요일을 0~6 숫자만 남기고 작은 순서로 정리한다 (이상한 값은 버린다)
+function normalizeRepeatDays(days) {
+    if (!Array.isArray(days)) return [];
+    return [...new Set(days.filter(day => Number.isInteger(day) && day >= 0 && day <= 6))].sort((a, b) => a - b);
+}
+
+// [1, 3, 5] -> '월·수·금', 모두 고르면 '매일', 월~금이면 '평일', 토·일이면 '주말'
+function formatRepeatDays(days) {
+    const repeatDays = normalizeRepeatDays(days);
+    if (repeatDays.length === 7) return '매일';
+    if (repeatDays.join() === '1,2,3,4,5') return '평일';
+    if (repeatDays.join() === '0,6') return '주말';
+    return repeatDays.map(day => weekdayNames[day]).join('·');
+}
+
 // 운동일지에 적은 운동 중, 알림 시간이 있고 아직 안 지난 것만 모은다
+// - 요일을 고른 운동은 그 날짜부터 앞으로 30일 안의 해당 요일마다 알림을 만든다
+// - 마이페이지에서 알림을 껐으면 빈 목록을 넘겨 예약된 알림을 모두 지운다
 function buildWorkoutAlarms() {
-    if (currentUser === null) return [];
+    if (currentUser === null || !isAlarmEnabled) return [];
 
     const now = Date.now();
     const limit = now + alarmMaxDays * 24 * 60 * 60 * 1000;
@@ -1586,19 +1608,98 @@ function buildWorkoutAlarms() {
         (exerciseLogs[dateKey] || []).forEach(entry => {
             if (!/^\d{2}:\d{2}$/.test(entry.alarmTime || '')) return;
 
-            const at = getAlarmTimestamp(dateKey, entry.alarmTime);
-            if (at <= now || at > limit) return;
+            const title = '운동 시간이에요! 💪';
+            const text = `${displayName} 님, ${entry.exerciseName} 할 시간입니다!`;
+            const repeatDays = normalizeRepeatDays(entry.repeatDays);
 
-            alarms.push({
-                id: `${dateKey}-log${entry.id}`,
-                at: at,
-                title: '운동 시간이에요! 💪',
-                text: `${displayName} 님, ${entry.exerciseName} 할 시간입니다!`
-            });
+            if (repeatDays.length === 0) {
+                const at = getAlarmTimestamp(dateKey, entry.alarmTime);
+                if (at <= now || at > limit) return;
+                alarms.push({ id: `${dateKey}-log${entry.id}`, at: at, title: title, text: text });
+                return;
+            }
+
+            // 반복 알림: 기록한 날짜(또는 오늘 중 더 늦은 날)부터 하루씩 넘기며 고른 요일만 담는다
+            const [year, month, day] = dateKey.split('-').map(Number);
+            const cursor = new Date(Math.max(new Date(year, month - 1, day).getTime(), new Date().setHours(0, 0, 0, 0)));
+
+            while (cursor.getTime() <= limit) {
+                if (repeatDays.includes(cursor.getDay())) {
+                    const cursorKey = formatDateKey(cursor);
+                    const at = getAlarmTimestamp(cursorKey, entry.alarmTime);
+                    if (at > now && at <= limit) {
+                        alarms.push({ id: `${dateKey}-log${entry.id}-${cursorKey}`, at: at, title: title, text: text });
+                    }
+                }
+                cursor.setDate(cursor.getDate() + 1);
+            }
         });
     });
 
     return alarms.sort((a, b) => a.at - b.at).slice(0, alarmMaxCount);
+}
+
+// 알림 요일 고르는 칩(일~토): 누르면 켜지고 다시 누르면 꺼진다. 고른 요일은 aria-pressed 로 표시한다
+function createDayChips(selectedDays) {
+    const chipBox = document.createElement('div');
+    chipBox.className = 'grid grid-cols-7 gap-1';
+
+    weekdayNames.forEach((dayName, dayIndex) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'day-chip';
+        chip.dataset.day = String(dayIndex);
+        chip.textContent = dayName;
+        chip.setAttribute('aria-pressed', String(selectedDays.includes(dayIndex)));
+        chip.setAttribute('aria-label', `${dayName}요일 반복`);
+        chip.addEventListener('click', () => {
+            chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+        });
+        chipBox.appendChild(chip);
+    });
+
+    return chipBox;
+}
+
+function readDayChips(chipBox) {
+    return Array.from(chipBox.querySelectorAll('.day-chip[aria-pressed="true"]')).map(chip => Number(chip.dataset.day));
+}
+
+// 알림 시간을 정했는데 알림이 꺼져 있으면 알려 준다 (스위치가 꺼졌거나, 폰의 알림 권한이 없는 경우)
+function warnIfAlarmOff() {
+    if (!isAlarmEnabled) {
+        showToast('마이페이지에서 운동 알림이 꺼져 있어요. 켜면 알림이 와요.');
+        return;
+    }
+
+    if (typeof RoutineNoteApp !== 'undefined'
+        && typeof RoutineNoteApp.isNotificationAllowed === 'function'
+        && !RoutineNoteApp.isNotificationAllowed()) {
+        showToast('알림이 꺼져 있어요. 안내 창에서 알림을 켜 주세요.');
+        RoutineNoteApp.askNotificationPermission();
+    }
+}
+
+// 마이페이지 '운동 알림' 스위치 모양을 지금 상태에 맞춘다
+function renderAlarmSwitch() {
+    document.getElementById('alarmSwitch').setAttribute('aria-checked', String(isAlarmEnabled));
+}
+
+async function toggleAlarmEnabled() {
+    if (currentUser === null) return;
+
+    isAlarmEnabled = !isAlarmEnabled;
+    renderAlarmSwitch();
+    syncWorkoutAlarms(); // 끄면 예약된 알림을 모두 지우고, 켜면 다시 예약한다
+    await saveStoredValue('alarmEnabled', isAlarmEnabled);
+
+    if (!isAlarmEnabled) {
+        showToast('운동 알림을 껐어요. 예약된 알림이 모두 취소됐어요.');
+        return;
+    }
+
+    showToast('운동 알림을 켰어요.');
+    warnIfAlarmOff(); // 폰의 알림 권한이 없으면 한국어 안내 창을 띄운다
 }
 
 function syncWorkoutAlarms() {
@@ -2424,22 +2525,34 @@ function createExerciseLogRow(entry, dateStr) {
     rowElement.className = 'grid grid-cols-[1fr_2.6rem_3.6rem_2.8rem_1.25rem] gap-1 items-center px-1 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 text-xs font-bold text-slate-800 dark:text-slate-100';
 
     const nameElement = document.createElement('span');
-    nameElement.className = 'truncate min-w-0';
+    nameElement.className = 'block truncate min-w-0';
     nameElement.textContent = entry.exerciseName;
     nameElement.setAttribute('title', entry.exerciseName);
 
-    // 알림 시간이 있으면 운동명 아래에 작게 보여 준다
-    let nameCell = nameElement;
-    if (entry.alarmTime) {
-        const alarmElement = document.createElement('span');
-        alarmElement.className = 'block text-[9px] font-bold text-brand-600 dark:text-brand-300';
-        alarmElement.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
-        alarmElement.append(formatAlarmTimeKorean(entry.alarmTime));
+    // 운동명 아래의 작은 버튼: 알림 시간(반복 요일)을 보여 주고, 누르면 아래에 수정 칸이 열린다
+    const hasAlarm = /^\d{2}:\d{2}$/.test(entry.alarmTime || '');
+    const repeatDays = normalizeRepeatDays(entry.repeatDays);
 
-        nameCell = document.createElement('div');
-        nameCell.className = 'min-w-0';
-        nameCell.append(nameElement, alarmElement);
+    const alarmButton = document.createElement('button');
+    alarmButton.type = 'button';
+    alarmButton.className = hasAlarm
+        ? 'block max-w-full truncate text-left text-[10px] font-bold text-brand-600 dark:text-brand-300'
+        : 'block max-w-full truncate text-left text-[10px] font-bold text-slate-400 dark:text-slate-500';
+    alarmButton.appendChild(createIcon('fa-regular fa-bell mr-0.5'));
+    alarmButton.append(hasAlarm ? formatAlarmTimeKorean(entry.alarmTime) : '알림 설정');
+    if (hasAlarm && repeatDays.length > 0) {
+        // 반복 요일은 한 줄 아래에 작게 보여 준다 (칸이 좁아 한 줄에 다 넣으면 잘린다)
+        const repeatElement = document.createElement('span');
+        repeatElement.className = 'block truncate';
+        repeatElement.appendChild(createIcon('fa-solid fa-rotate mr-0.5'));
+        repeatElement.append(`매주 ${formatRepeatDays(repeatDays)}`);
+        alarmButton.appendChild(repeatElement);
     }
+    alarmButton.setAttribute('aria-label', `${entry.exerciseName} 알림 ${hasAlarm ? '수정' : '설정'}`);
+
+    const nameCell = document.createElement('div');
+    nameCell.className = 'min-w-0';
+    nameCell.append(nameElement, alarmButton);
 
     const setElement = document.createElement('span');
     setElement.className = 'text-center';
@@ -2461,7 +2574,76 @@ function createExerciseLogRow(entry, dateStr) {
     deleteButton.addEventListener('click', () => deleteExerciseLog(dateStr, entry.id));
 
     rowElement.append(nameCell, setElement, weightElement, repsElement, deleteButton);
-    return rowElement;
+
+    const editorElement = createAlarmEditor(entry, dateStr);
+    alarmButton.addEventListener('click', () => {
+        editorElement.classList.toggle('hidden');
+
+        // 수정 칸이 열려 있는 동안만 목록 칸을 조금 키워서 수정 칸이 잘리지 않게 한다
+        const listElement = document.getElementById('exerciseLogList');
+        const hasOpenEditor = listElement.querySelector('.alarm-editor:not(.hidden)') !== null;
+        listElement.classList.toggle('max-h-[160px]', !hasOpenEditor);
+        listElement.classList.toggle('max-h-[230px]', hasOpenEditor);
+        if (hasOpenEditor) editorElement.scrollIntoView({ block: 'nearest' });
+    });
+
+    const wrapperElement = document.createElement('div');
+    wrapperElement.append(rowElement, editorElement);
+    return wrapperElement;
+}
+
+// 알림 수정 칸: 시간 고르기 + 반복 요일 + 저장 / 알림 끄기 / 취소 (처음에는 숨겨져 있다)
+function createAlarmEditor(entry, dateStr) {
+    const editorElement = document.createElement('div');
+    editorElement.className = 'alarm-editor hidden mt-1 p-2 space-y-1.5 rounded-lg border border-brand-500/30 bg-white dark:bg-slate-800';
+
+    const timeLabel = document.createElement('label');
+    timeLabel.className = 'block text-[11px] font-bold text-slate-600 dark:text-slate-300';
+    timeLabel.textContent = '알림 시간';
+
+    const timeInput = document.createElement('input');
+    timeInput.type = 'time';
+    timeInput.lang = 'ko';
+    timeInput.value = /^\d{2}:\d{2}$/.test(entry.alarmTime || '') ? entry.alarmTime : '';
+    timeInput.className = 'mt-1 w-full bg-slate-100 dark:bg-slate-900 text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500';
+    timeLabel.appendChild(timeInput);
+
+    const repeatLabel = document.createElement('p');
+    repeatLabel.className = 'text-[11px] font-bold text-slate-600 dark:text-slate-300';
+    repeatLabel.textContent = '반복 요일 (안 고르면 이 날짜만)';
+    const chipBox = createDayChips(normalizeRepeatDays(entry.repeatDays));
+
+    const buttonBox = document.createElement('div');
+    buttonBox.className = 'grid grid-cols-3 gap-1.5';
+
+    const saveButton = document.createElement('button');
+    saveButton.type = 'button';
+    saveButton.className = 'bg-brand-600 hover:bg-brand-700 text-white font-bold py-1.5 rounded-lg text-[11px] transition';
+    saveButton.textContent = '저장';
+    saveButton.addEventListener('click', () => {
+        updateExerciseLogAlarm(dateStr, entry.id, timeInput.value, readDayChips(chipBox));
+    });
+
+    const clearButton = document.createElement('button');
+    clearButton.type = 'button';
+    clearButton.className = 'border border-red-200 dark:border-red-900/60 text-red-500 font-bold py-1.5 rounded-lg text-[11px] hover:bg-red-50 dark:hover:bg-red-900/20 transition';
+    clearButton.textContent = '알림 끄기';
+    clearButton.addEventListener('click', () => updateExerciseLogAlarm(dateStr, entry.id, '', []));
+
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-bold py-1.5 rounded-lg text-[11px] hover:bg-slate-50 dark:hover:bg-slate-700 transition';
+    cancelButton.textContent = '취소';
+    cancelButton.addEventListener('click', () => {
+        editorElement.classList.add('hidden');
+        const listElement = document.getElementById('exerciseLogList');
+        listElement.classList.add('max-h-[160px]');
+        listElement.classList.remove('max-h-[230px]');
+    });
+
+    buttonBox.append(saveButton, clearButton, cancelButton);
+    editorElement.append(timeLabel, repeatLabel, chipBox, buttonBox);
+    return editorElement;
 }
 
 function renderExerciseLogList() {
@@ -2469,6 +2651,8 @@ function renderExerciseLogList() {
     const entries = exerciseLogs[currentActiveDate] || [];
 
     listElement.replaceChildren();
+    listElement.classList.add('max-h-[160px]');
+    listElement.classList.remove('max-h-[230px]');
 
     if (entries.length === 0) {
         listElement.appendChild(createMessageBox('기록된 운동이 없어요. 아래에서 추가해 주세요.', 'text-center py-4 text-xs text-slate-400'));
@@ -2522,6 +2706,12 @@ async function addExerciseLog(event) {
         return;
     }
 
+    const repeatDays = readDayChips(document.getElementById('logRepeatDays'));
+    if (repeatDays.length > 0 && alarm.time === '') {
+        showToast('요일 반복을 쓰려면 알림 시간을 먼저 골라 주세요.');
+        return;
+    }
+
     if (!exerciseLogs[currentActiveDate]) {
         exerciseLogs[currentActiveDate] = [];
     }
@@ -2531,32 +2721,62 @@ async function addExerciseLog(event) {
         setCount: setCount,
         weight: weight,
         reps: reps,
-        alarmTime: alarm.time
+        alarmTime: alarm.time,
+        repeatDays: repeatDays
     });
 
     ['logExerciseName', 'logSets', 'logWeight', 'logReps', 'logAlarmTime'].forEach(inputId => {
         document.getElementById(inputId).value = '';
     });
+    document.querySelectorAll('#logRepeatDays .day-chip').forEach(chip => chip.setAttribute('aria-pressed', 'false'));
     renderExerciseLogList();
     syncWorkoutAlarms();
     await saveStoredValue('exerciseLogs', exerciseLogs);
 
     if (alarm.time === '') {
         showToast('운동을 추가했어요. 운동일지 저장을 눌러 마무리해 주세요.');
+    } else if (repeatDays.length > 0) {
+        showToast(`추가했어요. 매주 ${formatRepeatDays(repeatDays)} ${formatAlarmTimeKorean(alarm.time)}에 알림이 와요!`);
     } else if (getAlarmTimestamp(currentActiveDate, alarm.time) <= Date.now()) {
         showToast('추가했어요. 이미 지난 시간이라 알림은 울리지 않아요.');
     } else {
         showToast(`추가했어요. ${formatAlarmTimeKorean(alarm.time)}에 알림이 와요!`);
     }
 
-    // 알림이 꺼져 있으면(권한을 안 줬거나 꺼 둔 경우) 한국어 안내 창으로 다시 물어본다
-    if (alarm.time !== ''
-        && typeof RoutineNoteApp !== 'undefined'
-        && typeof RoutineNoteApp.isNotificationAllowed === 'function'
-        && !RoutineNoteApp.isNotificationAllowed()) {
-        showToast('알림이 꺼져 있어요. 안내 창에서 알림을 켜 주세요.');
-        RoutineNoteApp.askNotificationPermission();
+    // 알림이 꺼져 있으면(스위치를 껐거나 폰의 알림 권한이 없는 경우) 알려 주고 다시 물어본다
+    if (alarm.time !== '') warnIfAlarmOff();
+}
+
+// 운동일지 목록에서 알림 시간·반복 요일을 바꾼다 (time 이 비어 있으면 알림을 끈다)
+async function updateExerciseLogAlarm(dateStr, logId, time, repeatDays) {
+    const entry = (exerciseLogs[dateStr] || []).find(item => item.id === logId);
+    if (!entry) return;
+
+    if (time !== '' && !/^\d{2}:\d{2}$/.test(time)) {
+        showToast('알림 시간을 다시 골라 주세요.');
+        return;
     }
+    if (time === '' && repeatDays.length > 0) {
+        showToast('요일 반복을 쓰려면 알림 시간을 먼저 골라 주세요.');
+        return;
+    }
+
+    entry.alarmTime = time;
+    entry.repeatDays = time === '' ? [] : repeatDays;
+
+    renderExerciseLogList();
+    syncWorkoutAlarms(); // 바뀐 시간으로 알림을 다시 예약한다
+    await saveStoredValue('exerciseLogs', exerciseLogs);
+
+    if (time === '') {
+        showToast('이 운동의 알림을 껐어요.');
+        return;
+    }
+
+    showToast(repeatDays.length > 0
+        ? `매주 ${formatRepeatDays(repeatDays)} ${formatAlarmTimeKorean(time)}에 알림이 와요!`
+        : `${formatAlarmTimeKorean(time)}으로 알림을 바꿨어요.`);
+    warnIfAlarmOff();
 }
 
 async function deleteExerciseLog(dateStr, logId) {
@@ -2959,6 +3179,7 @@ function bindFeatureEvents() {
     document.getElementById('detailTabRoutine').addEventListener('click', () => setDetailPanel('routine'));
     document.getElementById('detailTabLog').addEventListener('click', () => setDetailPanel('log'));
     document.getElementById('exerciseLogForm').addEventListener('submit', addExerciseLog);
+    document.getElementById('logRepeatDays').appendChild(createDayChips([])); // 추가 폼의 요일 칩(일~토)
     document.getElementById('saveExerciseLogButton').addEventListener('click', saveExerciseLogs);
 
     // 오늘의 운동 선택
@@ -2982,6 +3203,7 @@ function bindFeatureEvents() {
     document.getElementById('dietPeriodForm').addEventListener('submit', saveDietPeriod);
     document.getElementById('weightLogForm').addEventListener('submit', saveWeightLog);
     document.getElementById('darkModeSwitch').addEventListener('click', toggleDarkMode);
+    document.getElementById('alarmSwitch').addEventListener('click', toggleAlarmEnabled);
     document.getElementById('logoutButton').addEventListener('click', logout);
     document.getElementById('resetDataButton').addEventListener('click', handleResetData);
 
