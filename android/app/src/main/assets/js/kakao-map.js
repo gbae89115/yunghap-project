@@ -69,8 +69,49 @@ function initKakaoMap() {
     initFallbackCanvasMap();
 }
 
+/* ==========================================
+   안드로이드 앱 연결: 위치 권한 · 화면 켜짐 유지
+   (브라우저에서 열면 RoutineNoteApp 이 없으므로 그냥 넘어간다)
+   ========================================== */
+let pendingLocationAction = null; // 권한 허용 뒤 이어서 할 일: 'run' | 'locate'
+
+function needsLocationPermission() {
+    return !!(window.RoutineNoteApp && RoutineNoteApp.hasLocationPermission
+        && !RoutineNoteApp.hasLocationPermission());
+}
+
+// 위치 권한 창을 띄운다. 허용하면 action('run' 러닝 시작 / 'locate' 내 위치)을 이어서 한다
+function askLocationPermission(action) {
+    pendingLocationAction = action;
+    RoutineNoteApp.requestLocationPermission();
+}
+
+// MainActivity 가 권한 창 결과를 알려 줄 때 실행된다
+function onLocationPermissionResult(granted) {
+    const action = pendingLocationAction;
+    pendingLocationAction = null;
+    if (!granted) {
+        showToast('위치 권한이 있어야 러닝 경로를 기록할 수 있어요. 설정 > 애플리케이션 > 루틴노트 > 권한에서 켤 수 있어요.');
+        return;
+    }
+    if (action === 'run' && !isRunning) toggleRunningSimulation();
+    else if (action === 'locate') requestCurrentPosition(true);
+}
+
+// 러닝 중에는 화면이 꺼지지 않게 한다
+function setRunScreenOn(on) {
+    if (window.RoutineNoteApp && RoutineNoteApp.setKeepScreenOn) RoutineNoteApp.setKeepScreenOn(on);
+}
+
 // 브라우저 GPS 위치 조회 (isManual: 사용자가 버튼을 눌렀을 때만 안내 토스트를 띄운다)
 function requestCurrentPosition(isManual) {
+    // 앱에서 위치 권한이 아직 없으면: 처음 지도를 열 때는 묻지 않고 기본 위치로 보여 주고,
+    // '내 위치' 버튼을 눌렀을 때만 권한을 묻는다
+    if (needsLocationPermission()) {
+        updateAddressFromCoords(currentLat, currentLng);
+        if (isManual) askLocationPermission('locate');
+        return;
+    }
     if (!navigator.geolocation) {
         updateAddressFromCoords(currentLat, currentLng);
         if (isManual) showToast('GPS 위치 정보 조회가 불가능합니다.');
@@ -266,7 +307,13 @@ function toggleRunningSimulation() {
             showToast('이 기기에서는 GPS를 사용할 수 없어요.');
             return;
         }
+        // 처음 러닝을 시작할 때 위치 권한을 묻는다 (허용하면 자동으로 이어서 시작)
+        if (needsLocationPermission()) {
+            askLocationPermission('run');
+            return;
+        }
         isRunning = true;
+        setRunScreenOn(true);
         outsideKoreaWarned = false;
         btnText.textContent = "일시 정지";
         btnIcon.className = "fa-solid fa-pause";
@@ -288,6 +335,7 @@ function toggleRunningSimulation() {
         showToast('GPS 트래킹을 시작합니다.');
     } else {
         isRunning = false;
+        setRunScreenOn(false);
         btnText.textContent = "트래킹 재개";
         btnIcon.className = "fa-solid fa-play";
         clearInterval(runTimerInterval);
@@ -309,6 +357,7 @@ function updateRunDisplay() {
 
 function resetRunningData() {
     isRunning = false;
+    setRunScreenOn(false);
     clearInterval(runTimerInterval);
     stopGpsWatch();
     runPath = [];

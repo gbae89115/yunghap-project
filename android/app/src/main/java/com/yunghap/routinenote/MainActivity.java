@@ -2,12 +2,14 @@ package com.yunghap.routinenote;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.ServiceWorkerClient;
@@ -40,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
     // 상태바·내비게이션바 바탕색 (style.css / tailwind 색상과 맞춤)
     private static final int COLOR_BRAND_600 = Color.parseColor("#2563eb"); // 라이트 모드 헤더
     private static final int COLOR_SLATE_900 = Color.parseColor("#0f172a"); // 다크 모드 헤더·하단 탭
+
+    // 위치 권한 요청 번호 (알림 권한 요청 번호 1 과 겹치지 않게)
+    private static final int LOCATION_REQUEST_CODE = 2001;
 
     private WebView webView;
     private FrameLayout root;
@@ -133,11 +138,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // alert() 창 표시, 웹페이지의 위치 요청 허용
+        // alert() 창 표시, 웹페이지의 위치 요청 처리
+        // 휴대폰 위치 권한이 있을 때만 웹에 위치를 알려 준다
+        // (권한은 앱을 켤 때가 아니라 러닝을 처음 시작할 때 묻는다 → requestLocationPermission)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                callback.invoke(origin, true, false);
+                callback.invoke(origin, hasLocationPermission(), false);
             }
         });
 
@@ -166,13 +173,39 @@ public class MainActivity extends AppCompatActivity {
             public void askNotificationPermission() {
                 runOnUiThread(() -> NotificationHelper.askAgain(MainActivity.this));
             }
+
+            // 러닝 중에는 화면이 꺼지지 않게 한다 (화면이 꺼지면 GPS 기록이 끊길 수 있음)
+            // 러닝 시작 → true, 일시정지·종료·초기화 → false
+            @JavascriptInterface
+            public void setKeepScreenOn(boolean on) {
+                runOnUiThread(() -> {
+                    if (on) {
+                        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    } else {
+                        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    }
+                });
+            }
+
+            // 위치 권한이 이미 허용되어 있는지
+            @JavascriptInterface
+            public boolean hasLocationPermission() {
+                return MainActivity.this.hasLocationPermission();
+            }
+
+            // 위치 권한 창을 띄운다. 결과는 웹의 onLocationPermissionResult(true/false)로 알려 준다
+            @JavascriptInterface
+            public void requestLocationPermission() {
+                runOnUiThread(() -> requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                }, LOCATION_REQUEST_CODE));
+            }
         }, "RoutineNoteApp");
 
-        // 4. 휴대폰 권한 요청 (처음 실행할 때): 위치 + 알림(안드로이드 13 이상)
-        NotificationHelper.requestAtStartup(this, new String[]{
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-        });
+        // 4. 휴대폰 권한 요청 (처음 실행할 때): 알림(안드로이드 13 이상)만 묻는다
+        //    위치 권한은 러닝을 처음 시작할 때 묻는다 (requestLocationPermission)
+        NotificationHelper.requestAtStartup(this, new String[0]);
 
         // 5. 루틴노트 화면 열기
         webView.loadUrl(START_URL);
@@ -195,6 +228,23 @@ public class MainActivity extends AppCompatActivity {
                         });
             }
         });
+    }
+
+    // 위치 권한(정확한 위치 또는 대략적인 위치)이 허용되어 있는지
+    private boolean hasLocationPermission() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // 위치 권한 창에서 고른 결과를 웹(kakao-map.js)에 알려 준다
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != LOCATION_REQUEST_CODE) return;
+        boolean granted = hasLocationPermission();
+        webView.evaluateJavascript(
+                "(typeof onLocationPermissionResult === 'function') && onLocationPermissionResult(" + granted + ")",
+                null);
     }
 
     // 상태바·내비게이션바 색을 웹 화면의 라이트/다크 모드에 맞춘다

@@ -44,7 +44,7 @@ public final class NotificationHelper {
                 && !prefs.getBoolean(KEY_INTRO_SHOWN, false);
 
         if (!needsAsk) {
-            activity.requestPermissions(basePermissions, REQUEST_CODE);
+            if (basePermissions.length > 0) activity.requestPermissions(basePermissions, REQUEST_CODE);
             return;
         }
 
@@ -63,7 +63,7 @@ public final class NotificationHelper {
                 })
                 .setNegativeButton("나중에", (dialog, which) -> {
                     prefs.edit().putBoolean(KEY_INTRO_SHOWN, true).apply();
-                    activity.requestPermissions(basePermissions, REQUEST_CODE);
+                    if (basePermissions.length > 0) activity.requestPermissions(basePermissions, REQUEST_CODE);
                 })
                 .show();
     }
