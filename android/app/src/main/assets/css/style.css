@@ -389,6 +389,60 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
    ========================================== */
 
 /* 런닝 지표(거리/시간/칼로리): 칸 폭에 맞춰 글자 크기가 줄어들고, 줄바꿈 없이 한 줄로 유지한다 */
+/* 런닝 화면: 기록 카드 + 지도 + 버튼이 한 화면에 들어가고, 지도가 남은 높이를 모두 쓴다 */
+#tab-running:not(.hidden) {
+    height: 100%;
+}
+.run-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+.run-map-box {
+    flex: 1 1 auto;
+    min-height: 320px;
+}
+
+/* 지도 위 '내 위치' 점: 파란 점 + 퍼지는 원 */
+.run-me-dot {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: #2563eb;
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.45);
+}
+.run-me-dot::after {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border-radius: 9999px;
+    background: rgba(37, 99, 235, 0.28);
+    animation: run-me-pulse 1.8s ease-out infinite;
+    z-index: -1;
+}
+@keyframes run-me-pulse {
+    0%   { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* 지도 위 출발 지점 깃발 */
+.run-start-flag {
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    background: #10b981;
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.45);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .metric-row {
     display: flex;
     align-items: baseline;

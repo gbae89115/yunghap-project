@@ -54,8 +54,14 @@ function initKakaoMap() {
             });
             kakaoPolyline.setMap(kakaoMapInstance);
 
-            // Marker
-            kakaoMarker = new kakao.maps.Marker({ position: startPosition });
+            // 내 위치 표시: 파란 점 + 퍼지는 원 (style.css 의 .run-me-dot)
+            kakaoMarker = new kakao.maps.CustomOverlay({
+                position: startPosition,
+                content: '<div class="run-me-dot" aria-label="내 위치"></div>',
+                xAnchor: 0.5,
+                yAnchor: 0.5,
+                zIndex: 3
+            });
             kakaoMarker.setMap(kakaoMapInstance);
 
             requestCurrentPosition(false);
@@ -239,6 +245,28 @@ let runWatchId = null;          // watchPosition 번호
 let runPath = [];               // 지도에 그릴 실제 이동 좌표들
 let lastRunPoint = null;        // 직전 좌표 {lat, lng}
 let outsideKoreaWarned = false; // 한국 밖 안내를 한 번만 띄우기 위함
+let runStartOverlay = null;     // 출발 지점 깃발
+
+// 출발 지점에 초록 깃발을 표시한다 (style.css 의 .run-start-flag)
+function showRunStartFlag(position) {
+    if (!kakaoMapInstance) return;
+    if (runStartOverlay) runStartOverlay.setMap(null);
+    runStartOverlay = new kakao.maps.CustomOverlay({
+        position: position,
+        content: '<div class="run-start-flag" aria-label="출발 지점"><i class="fa-solid fa-flag"></i></div>',
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 2
+    });
+    runStartOverlay.setMap(kakaoMapInstance);
+}
+
+function clearRunStartFlag() {
+    if (runStartOverlay) {
+        runStartOverlay.setMap(null);
+        runStartOverlay = null;
+    }
+}
 
 // 두 좌표 사이 거리(km) - 하버사인 공식
 function getDistanceKm(lat1, lng1, lat2, lng2) {
@@ -278,6 +306,7 @@ function onRunPosition(position) {
 
     if (kakaoMapInstance) {
         const p = new kakao.maps.LatLng(latitude, longitude);
+        if (runPath.length === 0) showRunStartFlag(p); // 첫 좌표 = 출발 지점
         runPath.push(p);
         kakaoPolyline.setPath(runPath);        // 이동 경로 선
         kakaoMarker.setPosition(p);            // 현재 위치 마커
@@ -353,6 +382,20 @@ function updateRunDisplay() {
     const mins = String(Math.floor((secondsElapsed % 3600) / 60)).padStart(2, '0');
     const secs = String(secondsElapsed % 60).padStart(2, '0');
     document.getElementById('runTimer').textContent = `${hrs}:${mins}:${secs}`;
+
+    // 평균 페이스: 1km 를 달리는 데 걸린 평균 시간 (예: 5'32")
+    const paceElement = document.getElementById('runPace');
+    if (paceElement) {
+        if (distanceKm >= 0.01) {
+            const paceSec = Math.round(secondsElapsed / distanceKm);
+            const paceMin = Math.floor(paceSec / 60);
+            paceElement.textContent = paceMin >= 60
+                ? '-'
+                : `${paceMin}'${String(paceSec % 60).padStart(2, '0')}"`;
+        } else {
+            paceElement.textContent = '-';
+        }
+    }
 }
 
 function resetRunningData() {
@@ -363,6 +406,7 @@ function resetRunningData() {
     runPath = [];
     lastRunPoint = null;
     if (kakaoPolyline) kakaoPolyline.setPath([]);
+    clearRunStartFlag();
 
     secondsElapsed = 0;
     distanceKm = 0.0;

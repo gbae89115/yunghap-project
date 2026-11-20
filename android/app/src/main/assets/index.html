@@ -228,73 +228,65 @@
         </section>
 
         <!-- TAB 2: 런닝 지도 (Kakao Map GPS Tracker v2.0) -->
-        <section id="tab-running" class="tab-screen hidden p-4 space-y-4">
+        <section id="tab-running" class="tab-screen hidden p-4">
+          <!-- 런닝 화면: 기록 카드(위) + 큰 지도(남은 높이 전부) + 버튼 한 줄(아래) -->
+          <div class="run-layout">
 
-            <!-- Running Metrics Display -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+            <!-- 기록: 거리 · 시간 · 칼로리 / 평균 페이스 · GPS 상태 -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
                 <div class="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-700">
                     <div class="text-center px-1 min-w-0">
-                        <span class="text-xs font-bold text-slate-400 uppercase block">거리</span>
+                        <span class="text-xs font-bold text-slate-400 block">거리</span>
                         <div class="metric-row mt-1 text-slate-800 dark:text-slate-100"><span class="metric-value" id="runDistance">0.0</span><span class="metric-unit">km</span></div>
                     </div>
                     <div class="text-center px-1 min-w-0">
-                        <span class="text-xs font-bold text-slate-400 uppercase block">시간</span>
+                        <span class="text-xs font-bold text-slate-400 block">시간</span>
                         <div class="metric-row mt-1 text-brand-600 dark:text-brand-400"><span class="metric-value" id="runTimer">00:00:00</span></div>
                     </div>
                     <div class="text-center px-1 min-w-0">
-                        <span class="text-xs font-bold text-slate-400 uppercase block">칼로리</span>
+                        <span class="text-xs font-bold text-slate-400 block">칼로리</span>
                         <div class="metric-row mt-1 text-red-500"><span class="metric-value" id="runCalories">0</span><span class="metric-unit">kcal</span></div>
                     </div>
                 </div>
 
-                <div class="flex justify-around items-center mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
-                    <div>평균 페이스: <strong class="text-slate-800 dark:text-slate-200" id="runPace">-</strong> /km</div>
-                    <div>GPS 상태: <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i>정상</span></div>
+                <div class="flex justify-around items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500 dark:text-slate-400">
+                    <div>평균 페이스 <strong class="text-slate-800 dark:text-slate-200 tabular-nums" id="runPace">-</strong> /km</div>
+                    <div>GPS 상태 <span class="text-emerald-500 font-bold"><i class="fa-solid fa-satellite-dish mr-1" aria-hidden="true"></i>정상</span></div>
                 </div>
             </div>
 
-            <!-- Kakao Map Container -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-200/80 dark:border-slate-700/60 space-y-2">
-                <div class="flex justify-between items-center px-1">
-                    <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-person-running text-brand-500" aria-hidden="true"></i>
-                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">GPS 러닝 트래커</h3>
-                    </div>
+            <!-- 카카오 지도 (화면에 남은 높이를 모두 쓴다) -->
+            <div class="run-map-box relative w-full rounded-2xl overflow-hidden shadow-sm border border-slate-200/80 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-950">
+                <div id="kakaoMap" class="w-full h-full block"></div>
+
+                <!-- 카카오 지도를 못 불러올 때 대신 그리는 그림 -->
+                <canvas id="fallbackMapCanvas" class="hidden absolute inset-0 w-full h-full"></canvas>
+
+                <!-- 현재 위치 이름 -->
+                <div class="absolute top-3 left-3 max-w-[70%] bg-white/95 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 z-10">
+                    <i class="fa-solid fa-location-dot text-brand-500" aria-hidden="true"></i> <span id="locationBadgeText" class="truncate">GPS 위치 탐색 중...</span>
                 </div>
 
-                <!-- Kakao Map Div Container -->
-                <div class="relative w-full h-72 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">
-                    <div id="kakaoMap" class="w-full h-full block"></div>
-
-                    <!-- Map Fallback Canvas (In case Kakao API key or domain security blocks rendering in iFrame) -->
-                    <canvas id="fallbackMapCanvas" class="hidden absolute inset-0 w-full h-full"></canvas>
-
-                    <!-- Map Controls Floating Widget -->
-                    <div class="absolute top-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 z-10">
-                        <i class="fa-solid fa-location-dot text-red-500" aria-hidden="true"></i> <span id="locationBadgeText">GPS 위치 탐색 중...</span>
-                    </div>
-
-                    <div class="absolute bottom-3 right-3 flex flex-col gap-2 z-10">
-                        <button onclick="recenterKakaoMap()" class="w-9 h-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-white active:scale-95 transition">
-                            <i class="fa-solid fa-crosshairs text-sm"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- GPS Control Buttons -->
-                <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button id="toggleRunBtn" onclick="toggleRunningSimulation()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-98">
-                        <i class="fa-solid fa-play" id="toggleRunIcon"></i> <span id="toggleRunText">트래킹 시작</span>
-                    </button>
-                    <button onclick="resetRunningData()" class="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition active:scale-98">
-                        <i class="fa-solid fa-arrow-rotate-right"></i> 경로 초기화
-                    </button>
-                </div>
-                <button type="button" id="finishRunButton" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow-md flex items-center justify-center gap-2 transition">
-                    <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> 런닝 종료 및 기록 저장
+                <!-- 내 위치로 이동 -->
+                <button type="button" onclick="recenterKakaoMap()" aria-label="내 위치로 이동" class="absolute top-3 right-3 z-10 w-10 h-10 bg-white/95 dark:bg-slate-800/90 backdrop-blur-md rounded-full shadow-md text-brand-600 dark:text-brand-400 flex items-center justify-center active:scale-95 transition">
+                    <i class="fa-solid fa-crosshairs" aria-hidden="true"></i>
                 </button>
             </div>
 
+            <!-- 버튼 한 줄: 시작/일시정지 · 종료 및 저장 · 초기화 -->
+            <div class="grid grid-cols-[1fr_1fr_auto] gap-2">
+                <button type="button" id="toggleRunBtn" onclick="toggleRunningSimulation()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition active:scale-98 whitespace-nowrap">
+                    <i class="fa-solid fa-play" id="toggleRunIcon" aria-hidden="true"></i> <span id="toggleRunText">트래킹 시작</span>
+                </button>
+                <button type="button" id="finishRunButton" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow-md flex items-center justify-center gap-2 transition active:scale-98 whitespace-nowrap">
+                    <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> 종료 · 저장
+                </button>
+                <button type="button" onclick="resetRunningData()" aria-label="경로 초기화" title="경로 초기화" class="w-12 bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 rounded-xl flex items-center justify-center transition active:scale-98">
+                    <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+          </div>
         </section>
 
         <!-- TAB 3: 캘린더 (FullCalendar 6.1.8 + 연속 달성 + 타이머/스톱워치) -->
