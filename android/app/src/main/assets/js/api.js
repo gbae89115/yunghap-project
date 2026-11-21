@@ -98,3 +98,59 @@ async function handleKakaoLoginReturn() {
 
 // 화면 로드 시 실행
 window.addEventListener('DOMContentLoaded', loadTodayRoutines);
+
+// ==========================================
+// 회원탈퇴 (실수 방지: 두 번 눌러야 실행)
+// ==========================================
+let isWithdrawArmed = false;
+let withdrawArmTimerId = null;
+
+function disarmWithdrawButton() {
+    isWithdrawArmed = false;
+    clearTimeout(withdrawArmTimerId);
+    const label = document.getElementById('withdrawLabel');
+    if (label) label.textContent = '회원탈퇴';
+}
+
+async function handleWithdraw() {
+    if (currentUser === null) return;
+    if (typeof isDemoUser === 'function' && isDemoUser()) {
+        showToast('시연용 계정은 탈퇴할 수 없어요.');
+        return;
+    }
+
+    // 첫 번째 누름: 확인 안내
+    if (!isWithdrawArmed) {
+        isWithdrawArmed = true;
+        document.getElementById('withdrawLabel').textContent = '정말 탈퇴할까요? 모든 정보가 삭제돼요. 한 번 더 누르세요';
+        clearTimeout(withdrawArmTimerId);
+        withdrawArmTimerId = setTimeout(disarmWithdrawButton, 4000);
+        return;
+    }
+    disarmWithdrawButton();
+
+    const userId = currentUser.userId;
+
+    // (1) 서버(DB)에서 회원 삭제
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/account`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message);
+    } catch (error) {
+        console.error('회원탈퇴 실패:', error);
+        showToast('탈퇴하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+        return;
+    }
+
+    // (2) 기기에 저장된 이 사용자의 기록과 계정 지우기
+    userDataKeys.forEach(name => removeStorage(getUserKey(name)));
+    writeStorage('accounts', getAccounts().filter(account => account.userId !== userId));
+
+    // (3) 로그아웃 처리 (세션 삭제, 로그인 화면으로)
+    logout();
+    showToast('회원탈퇴가 완료되었어요. 이용해 주셔서 감사합니다.');
+}

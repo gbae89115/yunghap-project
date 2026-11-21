@@ -3206,6 +3206,7 @@ function bindFeatureEvents() {
     document.getElementById('alarmSwitch').addEventListener('click', toggleAlarmEnabled);
     document.getElementById('logoutButton').addEventListener('click', logout);
     document.getElementById('resetDataButton').addEventListener('click', handleResetData);
+    document.getElementById('withdrawButton').addEventListener('click', () => handleWithdraw());
 
     // 계산기
     ['calcActivity', 'calcMinutes', 'calcWeight'].forEach(elementId => {
