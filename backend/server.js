@@ -177,6 +177,46 @@ app.get('/api/auth/kakao/callback', async (req, res) => {
   }
 });
 
+// ==========================================
+// 5. 회원탈퇴: 카카오 연결 끊기 + DB에서 회원 삭제
+//    (BODY_RECORD, DIET_GOAL, WORKOUT_LOG는 CASCADE로 함께 삭제됨)
+// ==========================================
+app.delete('/api/auth/account', async (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'userId가 필요합니다.' });
+  }
+  // 시연·기본 계정은 지우지 않는다
+  if (['testuser', 'dadad'].includes(userId)) {
+    return res.status(403).json({ success: false, message: '시연용 계정은 삭제할 수 없습니다.' });
+  }
+
+  try {
+    // (1) 카카오 회원이면 카카오 연결 끊기 (어드민 키는 Render 환경변수에만)
+    if (userId.startsWith('kakao_') && process.env.KAKAO_ADMIN_KEY) {
+      const unlinkRes = await fetch('https://kapi.kakao.com/v1/user/unlink', {
+        method: 'POST',
+        headers: {
+          Authorization: `KakaoAK ${process.env.KAKAO_ADMIN_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+        },
+        body: new URLSearchParams({
+          target_id_type: 'user_id',
+          target_id: userId.replace('kakao_', ''),
+        }),
+      });
+      if (!unlinkRes.ok) console.warn('Kakao unlink failed:', await unlinkRes.text());
+    }
+
+    // (2) DB에서 회원 삭제
+    const [result] = await pool.query('DELETE FROM `USER` WHERE user_id = ?', [userId]);
+    res.json({ success: true, deleted: result.affectedRows });
+  } catch (error) {
+    console.error('Withdraw error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
