@@ -110,6 +110,8 @@ function disarmWithdrawButton() {
     clearTimeout(withdrawArmTimerId);
     const label = document.getElementById('withdrawLabel');
     if (label) label.textContent = '회원탈퇴';
+    const button = document.getElementById('withdrawButton');
+    if (button) button.classList.remove('is-armed'); // 빨간 강조 끄기 (style.css)
 }
 
 async function handleWithdraw() {
@@ -122,7 +124,8 @@ async function handleWithdraw() {
     // 첫 번째 누름: 확인 안내
     if (!isWithdrawArmed) {
         isWithdrawArmed = true;
-        document.getElementById('withdrawLabel').textContent = '정말 탈퇴할까요? 모든 정보가 삭제돼요. 한 번 더 누르세요';
+        document.getElementById('withdrawLabel').textContent = '정말 탈퇴할까요?\n한 번 더 누르면 모든 정보가 삭제돼요';
+        document.getElementById('withdrawButton').classList.add('is-armed'); // 빨간 강조 켜기 (style.css)
         clearTimeout(withdrawArmTimerId);
         withdrawArmTimerId = setTimeout(disarmWithdrawButton, 4000);
         return;

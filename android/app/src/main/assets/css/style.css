@@ -443,6 +443,25 @@ button.clock-icon-btn:hover { background: rgba(100, 116, 139, 0.15); }
     justify-content: center;
 }
 
+/* 위험한 버튼(내 기록 모두 삭제 · 회원탈퇴): 한 번 누르면 빨갛게 바뀌어 "한 번 더 누르면 실행"임을 알려 준다
+   (app.js / api.js 가 확인 대기 중일 때 is-armed 를 붙이고, 4초 뒤나 실행 후 뗀다) */
+#resetDataButton.is-armed {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+#withdrawButton.is-armed {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #dc2626;
+    text-decoration: none;
+}
+.dark #withdrawButton.is-armed {
+    background: rgba(127, 29, 29, 0.3);
+    border-color: #991b1b;
+    color: #f87171;
+}
+
 .metric-row {
     display: flex;
     align-items: baseline;

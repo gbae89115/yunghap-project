@@ -3048,6 +3048,7 @@ function disarmResetButton() {
     isResetArmed = false;
     clearTimeout(resetArmTimerId);
     document.getElementById('resetDataLabel').textContent = '내 기록 모두 삭제';
+    document.getElementById('resetDataButton').classList.remove('is-armed'); // 빨간 강조 끄기 (style.css)
 }
 
 // 실수로 지우지 않도록 두 번 눌러야 삭제된다
@@ -3057,6 +3058,7 @@ async function handleResetData() {
     if (!isResetArmed) {
         isResetArmed = true;
         document.getElementById('resetDataLabel').textContent = '정말 삭제할까요? 한 번 더 누르세요';
+        document.getElementById('resetDataButton').classList.add('is-armed'); // 빨간 강조 켜기 (style.css)
         clearTimeout(resetArmTimerId);
         resetArmTimerId = setTimeout(disarmResetButton, 4000);
         return;
