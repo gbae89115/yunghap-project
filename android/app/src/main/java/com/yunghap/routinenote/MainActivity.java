@@ -2,6 +2,7 @@ package com.yunghap.routinenote;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -25,6 +26,7 @@ import android.widget.FrameLayout;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.os.LocaleListCompat;
 import androidx.core.splashscreen.SplashScreen;
@@ -185,6 +187,29 @@ public class MainActivity extends AppCompatActivity {
                         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     }
                 });
+            }
+
+            // 러닝 시작 → 알림창에 "킬로미터 / 시간 / 평균 페이스" 카드를 띄운다
+            @JavascriptInterface
+            public void startRunNotification() {
+                try {
+                    ContextCompat.startForegroundService(MainActivity.this,
+                            new Intent(MainActivity.this, RunTrackingService.class));
+                } catch (RuntimeException e) {
+                    // 알림을 띄우지 못해도 러닝 기록 자체는 계속된다
+                }
+            }
+
+            // 1초마다 새 기록으로 알림 갱신 (km: "0.19", time: "2:06", pace: "10'49\"")
+            @JavascriptInterface
+            public void updateRunNotification(String km, String time, String pace) {
+                RunNotification.update(getApplicationContext(), km, time, pace);
+            }
+
+            // 일시정지·종료·초기화 → 알림 닫기
+            @JavascriptInterface
+            public void stopRunNotification() {
+                stopService(new Intent(MainActivity.this, RunTrackingService.class));
             }
 
             // 위치 권한이 이미 허용되어 있는지
