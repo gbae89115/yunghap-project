@@ -107,6 +107,21 @@ function onLocationPermissionResult(granted) {
 // 러닝 중에는 화면이 꺼지지 않게 한다
 function setRunScreenOn(on) {
     if (window.RoutineNoteApp && RoutineNoteApp.setKeepScreenOn) RoutineNoteApp.setKeepScreenOn(on);
+    // 알림창에도 러닝 기록 카드(킬로미터 / 시간 / 평균 페이스)를 띄우거나 닫는다
+    if (window.RoutineNoteApp) {
+        if (on && RoutineNoteApp.startRunNotification) RoutineNoteApp.startRunNotification();
+        if (!on && RoutineNoteApp.stopRunNotification) RoutineNoteApp.stopRunNotification();
+    }
+}
+
+// 알림창 기록 카드를 새 값으로 갱신한다 (예: 0.19 / 2:06 / 10'49")
+function updateRunNotification(paceText) {
+    if (!isRunning || !window.RoutineNoteApp || !RoutineNoteApp.updateRunNotification) return;
+    const h = Math.floor(secondsElapsed / 3600);
+    const m = Math.floor((secondsElapsed % 3600) / 60);
+    const s = String(secondsElapsed % 60).padStart(2, '0');
+    const timeText = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+    RoutineNoteApp.updateRunNotification(distanceKm.toFixed(2), timeText, paceText);
 }
 
 // 브라우저 GPS 위치 조회 (isManual: 사용자가 버튼을 눌렀을 때만 안내 토스트를 띄운다)
@@ -395,6 +410,7 @@ function updateRunDisplay() {
         } else {
             paceElement.textContent = '-';
         }
+        updateRunNotification(paceElement.textContent);
     }
 }
 
