@@ -46,7 +46,7 @@ function initKakaoMap() {
 
             // Running Path Polyline
             kakaoPolyline = new kakao.maps.Polyline({
-                path: buildCoursePath(currentLat, currentLng),
+                path: [],
                 strokeWeight: 6,
                 strokeColor: '#3b82f6',
                 strokeOpacity: 0.9,
@@ -169,7 +169,6 @@ function moveMapToPosition(lat, lng) {
     kakaoMapInstance.setCenter(position);
     if (kakaoMarker) kakaoMarker.setPosition(position);
     // 실제 트래킹 경로가 있으면 지우지 않고, 없을 때만 예시 경로를 보여준다
-    if (kakaoPolyline && runPath.length === 0) kakaoPolyline.setPath(buildCoursePath(lat, lng));
 
     updateAddressFromCoords(lat, lng);
 }
@@ -193,12 +192,13 @@ function updateAddressFromCoords(lat, lng) {
         setLocationBadge(`${regionInfo.address_name} 코스`);
     });
 }
-
-// 숨겨져 있던 탭에서 지도가 처음 보일 때 크기를 다시 계산한다
-function relayoutKakaoMap() {
+// 숨겨져 있던 탭에서 지도가 보일 때 크기를 다시 계산하고,
+// 러닝 중이 아니면 현재 GPS 위치로 다시 맞춘다
+function relayoutKakaoMap(refreshGps = true) {
     if (kakaoMapInstance) {
         kakaoMapInstance.relayout();
         kakaoMapInstance.setCenter(new kakao.maps.LatLng(currentLat, currentLng));
+        if (refreshGps && !isRunning) requestCurrentPosition(false);
     } else {
         initFallbackCanvasMap();
     }
@@ -433,4 +433,64 @@ function resetRunningData() {
 
     updateRunDisplay();
     showToast('러닝 데이터가 초기화되었습니다.');
+}
+/* ==========================================
+   지도 전체화면 (현재 위치 버튼 아래 버튼)
+   ========================================== */
+let isMapFullscreen = false;
+let mapPlaceholder = null;
+
+// 전체화면용 스타일을 한 번만 추가한다 (style.css를 건드리지 않기 위해)
+function ensureMapFullscreenStyle() {
+    if (document.getElementById('mapFullscreenStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'mapFullscreenStyle';
+    style.textContent = `
+        .map-fullscreen {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 9999 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            height: 100dvh !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+        .map-fullscreen #kakaoMap,
+        .map-fullscreen #fallbackMapCanvas {
+            width: 100% !important;
+            height: 100% !important;
+        }`;
+    document.head.appendChild(style);
+}
+
+function toggleMapFullscreen() {
+    const mapBox = document.getElementById('kakaoMap')?.parentElement;
+    if (!mapBox) return;
+    ensureMapFullscreenStyle();
+    isMapFullscreen = !isMapFullscreen;
+
+    if (isMapFullscreen) {
+        // 원래 자리를 표시해 두고, 지도 박스를 화면 맨 위로 옮긴다
+        mapPlaceholder = document.createComment('map-placeholder');
+        mapBox.before(mapPlaceholder);
+        document.body.appendChild(mapBox);
+        mapBox.classList.add('map-fullscreen');
+        document.body.style.overflow = 'hidden';
+    } else {
+        // 원래 자리로 되돌린다
+        mapBox.classList.remove('map-fullscreen');
+        if (mapPlaceholder) {
+            mapPlaceholder.replaceWith(mapBox);
+            mapPlaceholder = null;
+        }
+        document.body.style.overflow = '';
+    }
+
+    // 버튼 아이콘 바꾸기 (확대 ↔ 축소)
+    const icon = document.getElementById('mapFullscreenIcon');
+    if (icon) icon.className = isMapFullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+
+    // 지도 크기가 바뀌었으니 다시 그리기
+    setTimeout(() => relayoutKakaoMap(false), 50);
 }
